@@ -105,7 +105,7 @@ export default function Onboarding({
   };
 
   const ouviuTudo = ouvidos.size === 2;
-  const passos: { titulo: string; conteudo: ReactNode; trava?: string }[] = [
+  const passos: { titulo: string; conteudo: ReactNode; trava?: string; pulavel?: boolean }[] = [
     { titulo: "Bem-vindo à apuração ao vivo", conteudo: <BoasVindas /> },
     { titulo: "Como ler o placar", conteudo: <ComoLerPlacar /> },
     { titulo: "Mapa e linha do tempo", conteudo: <MapaELinha /> },
@@ -113,6 +113,8 @@ export default function Onboarding({
       titulo: "Ouça os dois alertas",
       conteudo: <Sons ouvidos={ouvidos} bloqueado={bloqueado} onTestar={testar} />,
       trava: ouviuTudo ? undefined : "Toque nos dois áudios para continuar",
+      // pular conclui com som: o clique já serve de gesto para liberar o áudio no navegador
+      pulavel: true,
     },
     { titulo: "Tudo pronto", conteudo: <Pronto onConcluir={onConcluir} /> },
   ];
@@ -156,13 +158,22 @@ export default function Onboarding({
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-3">
-          {passo > 0 ? (
-            <button type="button" onClick={() => ir(passo - 1)} className="text-sm font-semibold text-muted hover:text-foreground">
-              ← Voltar
-            </button>
-          ) : (
-            <span />
-          )}
+          <div className="flex shrink-0 flex-col items-start gap-1 whitespace-nowrap sm:flex-row sm:items-center sm:gap-4">
+            {passo > 0 && (
+              <button type="button" onClick={() => ir(passo - 1)} className="text-sm font-semibold text-muted hover:text-foreground">
+                ← Voltar
+              </button>
+            )}
+            {atual.pulavel && (
+              <button
+                type="button"
+                onClick={() => onConcluir(true)}
+                className="text-xs font-semibold text-muted underline underline-offset-2 hover:text-foreground"
+              >
+                Pular tutorial
+              </button>
+            )}
+          </div>
           {!ultimo && (
             <div className="flex items-center gap-3">
               {atual.trava && <span className="text-right text-xs text-muted">{atual.trava}</span>}
