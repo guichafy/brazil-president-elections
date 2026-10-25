@@ -12,6 +12,8 @@ export async function desbloquearAudio(): Promise<boolean> {
   return ctx.state === "running";
 }
 
+export const audioLiberado = () => ctx?.state === "running";
+
 function nota(
   c: AudioContext,
   freq: number,

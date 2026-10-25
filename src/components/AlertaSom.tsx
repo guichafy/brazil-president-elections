@@ -2,17 +2,30 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { avaliarHumor, type EventoHumor, type Variacao } from "@/lib/humor";
-import { arpejoFeliz, desbloquearAudio, somFeliz, somTriste } from "@/lib/sons";
+import { arpejoFeliz, audioLiberado, desbloquearAudio, somFeliz, somTriste } from "@/lib/sons";
 import type { ResultadoAbrangencia } from "@/lib/types";
 
 const AVISO_MS = 20_000;
 
 /** Compara cada totalização nacional nova com a anterior e toca o som correspondente. */
 export function useAlertaSom() {
-  const [ativo, setAtivo] = useState(false);
+  // ligado por padrão; o navegador só libera o áudio no 1º gesto do usuário na página
+  const [ativo, setAtivo] = useState(true);
+  const [liberado, setLiberado] = useState(false);
   const [evento, setEvento] = useState<(EventoHumor & { id: number }) | null>(null);
   const anterior = useRef<ResultadoAbrangencia | null>(null);
-  const ativoRef = useRef(false);
+  const ativoRef = useRef(true);
+
+  // qualquer clique, toque ou tecla na página libera o áudio
+  useEffect(() => {
+    if (liberado) return;
+    const liberar = async () => {
+      if (await desbloquearAudio()) setLiberado(true);
+    };
+    const eventos = ["pointerdown", "keydown", "touchend"] as const;
+    eventos.forEach((e) => window.addEventListener(e, liberar));
+    return () => eventos.forEach((e) => window.removeEventListener(e, liberar));
+  }, [liberado]);
 
   const onNacional = useCallback((nacional: ResultadoAbrangencia | null) => {
     if (!nacional) return;
@@ -28,6 +41,7 @@ export function useAlertaSom() {
     if (ligar && !(await desbloquearAudio())) return;
     ativoRef.current = ligar;
     setAtivo(ligar);
+    setLiberado(audioLiberado());
     if (ligar) arpejoFeliz(); // confirmação curta; os áudios ficam para os eventos
   }, []);
 
@@ -38,20 +52,22 @@ export function useAlertaSom() {
     return () => clearTimeout(t);
   }, [evento]);
 
-  return { ativo, alternar, evento, fecharAviso: () => setEvento(null), onNacional };
+  return { ativo, liberado, alternar, evento, fecharAviso: () => setEvento(null), onNacional };
 }
 
-export function BotaoSom({ ativo, alternar }: { ativo: boolean; alternar: () => void }) {
+export function BotaoSom({ ativo, liberado, alternar }: { ativo: boolean; liberado: boolean; alternar: () => void }) {
+  // ligado mas ainda bloqueado pelo navegador: o clique (que já libera o áudio) não deve desligar
+  const aguardando = ativo && !liberado;
   return (
     <div className="flex items-center gap-2">
       <button
         type="button"
-        onClick={alternar}
+        onClick={aguardando ? undefined : alternar}
         aria-pressed={ativo}
         className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${ativo ? "bg-white text-accent" : "bg-white/15 hover:bg-white/25"}`}
         title="Áudio do Lula: Lula sobe e Flávio cai · Áudio do Bolsonaro: Lula cai e Flávio sobe"
       >
-        {ativo ? "🔔 Som ligado" : "🔕 Ativar som"}
+        {aguardando ? "🔔 Toque na página para liberar o som" : ativo ? "🔔 Som ligado" : "🔕 Ativar som"}
       </button>
       {ativo && (
         <span className="flex gap-1 text-xs">

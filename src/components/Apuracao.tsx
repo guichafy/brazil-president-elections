@@ -95,7 +95,7 @@ export default function Apuracao() {
             <Item9 />
           </div>
           <div className="flex flex-col items-end gap-2">
-            <BotaoSom ativo={som.ativo} alternar={som.alternar} />
+            <BotaoSom ativo={som.ativo} liberado={som.liberado} alternar={som.alternar} />
             <div className="flex items-center gap-2 text-sm">
               <span key={apuracao.recebidoEm} className="inline-block size-2 animate-ping rounded-full bg-white [animation-iteration-count:2]" />
               {d?.nacional ? <>Atualizado às {d.nacional.dataHora.slice(11, 16)} (TSE)</> : "Carregando…"}
