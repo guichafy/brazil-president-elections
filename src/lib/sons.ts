@@ -92,14 +92,18 @@ function interromper() {
 /**
  * Toca o arquivo interrompendo o anterior, para nunca haver dois áudios ao mesmo tempo;
  * sem arquivo, usa o som sintetizado.
+ * Resolve, quando o áudio começa, com a duração dele em segundos; `null` se nada tocou ou se tocou o sintetizado.
  */
-async function tocarArquivo(url: string, reserva: () => void) {
-  if (!ctx || ctx.state !== "running") return;
+async function tocarArquivo(url: string, reserva: () => void): Promise<number | null> {
+  if (!ctx || ctx.state !== "running") return null;
   const vez = ++pedido;
   const buf = await carregar(ctx, url);
-  if (vez !== pedido) return;
+  if (vez !== pedido) return null;
   interromper();
-  if (!buf) return reserva();
+  if (!buf) {
+    reserva();
+    return null;
+  }
   const src = ctx.createBufferSource();
   src.buffer = buf;
   src.connect(ctx.destination);
@@ -108,9 +112,10 @@ async function tocarArquivo(url: string, reserva: () => void) {
   };
   src.start();
   tocando = src;
+  return buf.duration;
 }
 
-/** Interrompe o áudio em andamento (os arquivos têm de 15s a 1min) e descarta o que ainda estiver carregando. */
+/** Interrompe o áudio em andamento (os arquivos têm de 6s a 1min) e descarta o que ainda estiver carregando. */
 export function pararSom() {
   pedido++;
   interromper();

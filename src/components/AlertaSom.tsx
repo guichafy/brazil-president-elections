@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AnimacaoHumor from "./AnimacaoHumor";
 import { avaliarHumor, type EventoHumor, type Variacao } from "@/lib/humor";
-import { arpejoFeliz, audioLiberado, desbloquearAudio, somFeliz, somTriste } from "@/lib/sons";
+import { arpejoFeliz, audioLiberado, desbloquearAudio, pararSom, somFeliz, somTriste } from "@/lib/sons";
 import type { ResultadoAbrangencia } from "@/lib/types";
 
-const AVISO_MS = 15_000;
+const AVISO_MS = 15_000; // sem som; com som, o aviso dura o mesmo que o áudio sorteado
 // depois de um aviso, as viradas seguintes dentro deste intervalo são descartadas (sem aviso nem áudio)
 const INTERVALO_AVISOS_MS = 5 * 60_000;
 
@@ -19,7 +19,7 @@ export function useAlertaSom(pausado = false) {
   // ligado por padrão; o navegador só libera o áudio no 1º gesto do usuário na página
   const [ativo, setAtivo] = useState(true);
   const [liberado, setLiberado] = useState(false);
-  const [evento, setEvento] = useState<(EventoHumor & { id: number }) | null>(null);
+  const [evento, setEvento] = useState<EventoAviso | null>(null);
   const anterior = useRef<ResultadoAbrangencia | null>(null);
   const ultimoAviso = useRef(-Infinity);
   const ativoRef = useRef(true);
@@ -47,8 +47,16 @@ export function useAlertaSom(pausado = false) {
     const agora = Date.now();
     if (agora - ultimoAviso.current < INTERVALO_AVISOS_MS) return;
     ultimoAviso.current = agora;
-    setEvento({ ...ev, id: agora });
-    if (ativoRef.current) (ev.humor === "feliz" ? somFeliz : somTriste)();
+    const mostrar = (duracao: number | null) =>
+      setEvento({ ...ev, id: agora, duracaoMs: duracao ? duracao * 1000 : AVISO_MS });
+    // com som, o aviso só abre quando o áudio começa, para os dois terminarem juntos
+    if (ativoRef.current) (ev.humor === "feliz" ? somFeliz : somTriste)().then(mostrar);
+    else mostrar(null);
+  }, []);
+
+  const fecharAviso = useCallback(() => {
+    pararSom();
+    setEvento(null);
   }, []);
 
   /** Liga ou desliga o som; retorna se ficou no estado pedido (ligar depende do navegador liberar o áudio). */
@@ -65,14 +73,14 @@ export function useAlertaSom(pausado = false) {
     if ((await definir(ligar)) && ligar) arpejoFeliz(); // confirmação curta; os áudios ficam para os eventos
   }, [definir]);
 
-  // some com o aviso depois de alguns segundos
+  // some com o aviso quando o áudio termina
   useEffect(() => {
     if (!evento) return;
-    const t = setTimeout(() => setEvento(null), AVISO_MS);
+    const t = setTimeout(fecharAviso, evento.duracaoMs);
     return () => clearTimeout(t);
-  }, [evento]);
+  }, [evento, fecharAviso]);
 
-  return { ativo, liberado, alternar, definir, evento, fecharAviso: () => setEvento(null), onNacional };
+  return { ativo, liberado, alternar, definir, evento, fecharAviso, onNacional };
 }
 
 export function BotaoSom({ ativo, liberado, alternar }: { ativo: boolean; liberado: boolean; alternar: () => void }) {
@@ -122,8 +130,10 @@ function Linha({ v, cor }: { v: Variacao; cor: string }) {
   );
 }
 
+type EventoAviso = EventoHumor & { id: number; duracaoMs: number };
+
 interface PropsAviso {
-  evento: (EventoHumor & { id: number }) | null;
+  evento: EventoAviso | null;
   onFechar: () => void;
   corLula: string;
   corFlavio: string;
@@ -135,7 +145,7 @@ export function AvisoHumor({ evento, ...props }: PropsAviso) {
   return <Aviso key={evento.id} evento={evento} {...props} />;
 }
 
-function Aviso({ evento, onFechar, corLula, corFlavio }: Omit<PropsAviso, "evento"> & { evento: EventoHumor }) {
+function Aviso({ evento, onFechar, corLula, corFlavio }: Omit<PropsAviso, "evento"> & { evento: EventoAviso }) {
   const feliz = evento.humor === "feliz";
 
   useEffect(() => {
@@ -174,7 +184,7 @@ function Aviso({ evento, onFechar, corLula, corFlavio }: Omit<PropsAviso, "event
         <div className="h-1 bg-track">
           <div
             className="h-full origin-left"
-            style={{ background: feliz ? corLula : corFlavio, animation: `aviso-contagem ${AVISO_MS}ms linear forwards` }}
+            style={{ background: feliz ? corLula : corFlavio, animation: `aviso-contagem ${evento.duracaoMs}ms linear forwards` }}
           />
         </div>
       </div>
