@@ -149,7 +149,8 @@ function animacaoLula(cor: string) {
   };
 }
 
-function AnimacaoLula({ cor }: { cor: string }) {
+/** Lula entrando com pulo e depois balançando; também usado no aviso de Lula subindo. */
+export function AnimacaoLula({ cor, className = "w-[min(78vw,340px)]" }: { cor: string; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useLottie(ref, () => ({ animationData: animacaoLula(cor), loop: true }), {
     quadroParado: ENTRADA,
@@ -157,7 +158,7 @@ function AnimacaoLula({ cor }: { cor: string }) {
     iniciar: (a) => a.playSegments([[0, ENTRADA], [ENTRADA, FIM]], true),
     deps: [cor],
   });
-  return <div ref={ref} aria-hidden className="aspect-[420/460] w-[min(78vw,340px)]" />;
+  return <div ref={ref} aria-hidden className={`aspect-[420/460] ${className}`} />;
 }
 
 export interface EventoVitoria {

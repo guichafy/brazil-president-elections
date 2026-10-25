@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import AnimacaoHumor from "./AnimacaoHumor";
-import type { EventoVitoria } from "./AvisoVitoria";
+import { AnimacaoLula, type EventoVitoria } from "./AvisoVitoria";
 import { avaliarHumor, LULA, lulaVenceu, type EventoHumor, type Variacao } from "@/lib/humor";
 import { arpejoFeliz, audioLiberado, desbloquearAudio, pararSom, somFeliz, somTriste, somVitoria } from "@/lib/sons";
 import type { ResultadoAbrangencia } from "@/lib/types";
@@ -242,7 +242,12 @@ function Aviso({ evento, onFechar, corLula, corFlavio }: Omit<PropsAviso, "event
           ✕
         </button>
         <div className="flex flex-col items-center px-5 pt-5 pb-4">
-          <AnimacaoHumor corLula={corLula} corFlavio={corFlavio} lulaSobe={feliz} />
+          {/* Lula subindo reaproveita o Lula da comemoração da vitória; caindo, ficam as setas */}
+          {feliz ? (
+            <AnimacaoLula cor={corLula} className="w-44" />
+          ) : (
+            <AnimacaoHumor corLula={corLula} corFlavio={corFlavio} lulaSobe={false} />
+          )}
           <div className="mt-1 text-center text-xl font-bold">
             {feliz ? "🎉 Lula subindo, Flávio caindo" : "😢 Lula caindo, Flávio subindo"}
           </div>
