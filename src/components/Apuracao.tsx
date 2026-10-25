@@ -10,7 +10,7 @@ import CandidateList from "./CandidateList";
 import Comparacao from "./Comparacao";
 import Placar from "./Placar";
 import Projecao from "./Projecao";
-import Timeline from "./Timeline";
+import Timeline, { Segmented } from "./Timeline";
 
 const POLL_MS = 15_000;
 
@@ -88,6 +88,36 @@ export default function Apuracao() {
   const referencia =
     vistaAtiva === "turnos" ? comparacao.data?.primeiroTurno : vistaAtiva === "2022" ? comparacao.data?.ano2022 : null;
 
+  const conteudoMapa = d ? (
+    <>
+      <BrazilMap ufs={d.ufs} selected={scope} onSelect={setScope} mode={mapMode} />
+      {mapMode.tipo === "lider" && <Legenda d={d} />}
+      <UfGrid d={d} selected={scope} onSelect={setScope} mode={mapMode} />
+    </>
+  ) : (
+    <Skeleton />
+  );
+
+  const conteudoLinha = (
+    <>
+      {abas.length > 1 && <Abas value={vistaAtiva} onChange={setVista} options={abas} />}
+      {atual && timeline.data && timeline.data.scope === scope ? (
+        referencia ? (
+          <Comparacao
+            pontos={timeline.data.pontos}
+            candidatos={atual.candidatos}
+            rotuloAtual={`${atual.turno}º T - 2026`}
+            referencia={referencia}
+          />
+        ) : (
+          <Timeline pontos={timeline.data.pontos} candidatos={atual.candidatos} />
+        )
+      ) : (
+        <Skeleton />
+      )}
+    </>
+  );
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="bg-accent text-white">
@@ -129,86 +159,107 @@ export default function Apuracao() {
           </>
         )}
 
-        <div
-          className={`mt-5 grid grid-cols-[minmax(0,1fr)] gap-5 ${comPlacar ? "" : "lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]"}`}
-        >
-          {/* no 2º turno o placar já mostra o resultado da abrangência; o card fica só no layout do 1º turno */}
-          {!comPlacar && (
-            <section className="rounded-xl bg-surface p-4 shadow-sm">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <h2 className="text-lg font-bold">{scopeName(scope)}</h2>
-                {scope !== "br" && (
-                  <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
-                    ← Voltar para Brasil
-                  </button>
-                )}
+        {comPlacar ? (
+          <section className="mt-5 rounded-xl bg-surface p-4 shadow-sm">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-bold">Apuração por estado · {scopeName(scope)}</h2>
+                <p className="text-xs text-muted">Clique num estado para ver o placar e a linha do tempo dele</p>
               </div>
-              {atual ? (
-                <>
-                  <CandidateList
-                    candidatos={atual.candidatos}
-                    destaque={destaque}
-                    onDestaque={setDestaque}
-                    vencedor={mostraDecisao && atual.decisao.garantido ? atual.decisao.lider : null}
-                  />
-                  {mostraDecisao && <DecisaoInfo r={atual} />}
-                  <ResumoVotos r={atual} />
-                </>
-              ) : (
-                <Skeleton />
+              {scope !== "br" && (
+                <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
+                  ← Voltar para Brasil
+                </button>
               )}
-            </section>
-          )}
-
-          <section className="rounded-xl bg-surface p-4 shadow-sm">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-bold">Mapa por estado</h2>
-              <span className="text-xs text-muted">
-                {candidatoDestaque ? (
-                  <>
-                    Intensidade = % de <b>{candidatoDestaque.nome}</b> ·{" "}
-                    <button type="button" className="font-semibold text-accent hover:underline" onClick={() => setDestaque(null)}>
-                      ver quem lidera
+            </div>
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+              <div>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold">Mapa</h3>
+                  {d?.nacional && (
+                    <span className="flex items-center gap-2 text-xs text-muted">
+                      Colorir por
+                      <Segmented
+                        value={destaque ?? "lider"}
+                        onChange={(v) => setDestaque(v === "lider" ? null : v)}
+                        options={[
+                          { value: "lider", label: "Líder" },
+                          ...d.nacional.candidatos.map((c) => ({ value: c.numero, label: primeiroNome(c.nome) })),
+                        ]}
+                      />
+                    </span>
+                  )}
+                </div>
+                {candidatoDestaque && (
+                  <p className="mb-1 text-xs text-muted">
+                    Intensidade = % de <b>{candidatoDestaque.nome}</b> em cada estado
+                  </p>
+                )}
+                {conteudoMapa}
+              </div>
+              <div>
+                <h3 className="mb-2 text-sm font-semibold">Linha do tempo · % dos votos válidos</h3>
+                {conteudoLinha}
+              </div>
+            </div>
+          </section>
+        ) : (
+          <>
+            <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+              <section className="rounded-xl bg-surface p-4 shadow-sm">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h2 className="text-lg font-bold">{scopeName(scope)}</h2>
+                  {scope !== "br" && (
+                    <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
+                      ← Voltar para Brasil
                     </button>
+                  )}
+                </div>
+                {atual ? (
+                  <>
+                    <CandidateList
+                      candidatos={atual.candidatos}
+                      destaque={destaque}
+                      onDestaque={setDestaque}
+                      vencedor={mostraDecisao && atual.decisao.garantido ? atual.decisao.lider : null}
+                    />
+                    {mostraDecisao && <DecisaoInfo r={atual} />}
+                    <ResumoVotos r={atual} />
                   </>
                 ) : (
-                  "Cor do candidato que lidera em cada estado"
+                  <Skeleton />
                 )}
-              </span>
-            </div>
-            {d ? (
-              <div className={comPlacar ? "mx-auto max-w-3xl" : ""}>
-                <BrazilMap ufs={d.ufs} selected={scope} onSelect={setScope} mode={mapMode} />
-                {mapMode.tipo === "lider" && <Legenda d={d} />}
-                <UfGrid d={d} selected={scope} onSelect={setScope} mode={mapMode} />
-              </div>
-            ) : (
-              <Skeleton />
-            )}
-          </section>
-        </div>
+              </section>
 
-        <section className="mt-5 rounded-xl bg-surface p-4 shadow-sm">
-          <div className="mb-3">
-            <h2 className="text-lg font-bold">Linha do tempo da apuração · {scopeName(scope)}</h2>
-            <p className="text-xs text-muted">% dos votos válidos de cada candidato conforme as seções são totalizadas</p>
-          </div>
-          {abas.length > 1 && <Abas value={vistaAtiva} onChange={setVista} options={abas} />}
-          {atual && timeline.data && timeline.data.scope === scope ? (
-            referencia ? (
-              <Comparacao
-                pontos={timeline.data.pontos}
-                candidatos={atual.candidatos}
-                rotuloAtual={`${atual.turno}º T - 2026`}
-                referencia={referencia}
-              />
-            ) : (
-              <Timeline pontos={timeline.data.pontos} candidatos={atual.candidatos} />
-            )
-          ) : (
-            <Skeleton />
-          )}
-        </section>
+              <section className="rounded-xl bg-surface p-4 shadow-sm">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-bold">Mapa por estado</h2>
+                  <span className="text-xs text-muted">
+                    {candidatoDestaque ? (
+                      <>
+                        Intensidade = % de <b>{candidatoDestaque.nome}</b> ·{" "}
+                        <button type="button" className="font-semibold text-accent hover:underline" onClick={() => setDestaque(null)}>
+                          ver quem lidera
+                        </button>
+                      </>
+                    ) : (
+                      "Cor do candidato que lidera em cada estado"
+                    )}
+                  </span>
+                </div>
+                {conteudoMapa}
+              </section>
+            </div>
+
+            <section className="mt-5 rounded-xl bg-surface p-4 shadow-sm">
+              <div className="mb-3">
+                <h2 className="text-lg font-bold">Linha do tempo da apuração · {scopeName(scope)}</h2>
+                <p className="text-xs text-muted">% dos votos válidos de cada candidato conforme as seções são totalizadas</p>
+              </div>
+              {conteudoLinha}
+            </section>
+          </>
+        )}
 
         <footer className="mt-6 text-center text-xs text-muted">
           <p className="mb-1 font-semibold text-foreground">Acompanhamento dedicado ao grupo do Zap Item 9</p>
@@ -371,6 +422,12 @@ function UfGrid({
       })}
     </div>
   );
+}
+
+/** "FLAVIO BOLSONARO" -> "Flavio" */
+function primeiroNome(nome: string) {
+  const p = nome.split(" ")[0];
+  return p.charAt(0) + p.slice(1).toLowerCase();
 }
 
 function Skeleton() {
