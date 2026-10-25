@@ -8,6 +8,7 @@ import { AvisoHumor, BotaoSom, useAlertaSom } from "./AlertaSom";
 import BrazilMap, { DecisaoInfo, estiloCss, ufEstilo, type MapMode } from "./BrazilMap";
 import CandidateList from "./CandidateList";
 import Comparacao from "./Comparacao";
+import Onboarding, { useOnboarding } from "./Onboarding";
 import Placar from "./Placar";
 import Projecao from "./Projecao";
 import Timeline, { Segmented } from "./Timeline";
@@ -57,7 +58,9 @@ export default function Apuracao() {
   const [scope, setScope] = useState<Scope>("br");
   const [destaque, setDestaque] = useState<string | null>(null);
 
-  const som = useAlertaSom();
+  const guia = useOnboarding();
+  // com o guia aberto, os alertas de verdade esperam, para não se misturar aos testes de som
+  const som = useAlertaSom(guia.aberto);
   const apuracao = usePolling<ApuracaoResponse>("/api/presidente", POLL_MS, (r) => som.onNacional(r.nacional));
   const timeline = usePolling<TimelineResponse>(`/api/presidente/timeline?scope=${scope}`, POLL_MS * 2);
   // séries de referência não mudam: uma consulta por hora basta
@@ -119,163 +122,184 @@ export default function Apuracao() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="bg-accent text-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider opacity-80">Eleições 2026 · {d?.nacional?.turno ?? "1"}º turno</div>
-            <h1 className="text-xl font-bold sm:text-2xl">Apuração para Presidente</h1>
-            <Item9 />
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <BotaoSom ativo={som.ativo} liberado={som.liberado} alternar={som.alternar} />
-            <div className="flex items-center gap-2 text-sm">
-              <span key={apuracao.recebidoEm} className="inline-block size-2 animate-ping rounded-full bg-white [animation-iteration-count:2]" />
-              {d?.nacional ? <>Atualizado às {d.nacional.dataHora.slice(11, 16)} (TSE)</> : "Carregando…"}
+    <>
+      <div className="flex min-h-screen flex-col" inert={guia.aberto}>
+        <header className="bg-accent text-white">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider opacity-80">Eleições 2026 · {d?.nacional?.turno ?? "1"}º turno</div>
+              <h1 className="text-xl font-bold sm:text-2xl">Apuração para Presidente</h1>
+              <Item9 />
             </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5">
-        {apuracao.erro && !d && (
-          <div className="mb-4 rounded-lg border border-accent/40 bg-accent/10 p-3 text-sm">
-            Não foi possível carregar os dados do TSE ({apuracao.erro}). Tentando novamente…
-          </div>
-        )}
-
-        {comPlacar && d?.nacional ? (
-          <>
-            <Placar
-              r={atual ?? d.nacional}
-              projecao={scope === "br" ? d.projecao : null}
-              onVoltar={scope !== "br" ? () => setScope("br") : undefined}
-            />
-          </>
-        ) : (
-          <>
-            {atual && <ProgressoBar r={atual} />}
-            {d?.projecao && d.nacional && <Projecao projecao={d.projecao} candidatos={d.nacional.candidatos} turno={d.nacional.turno} />}
-          </>
-        )}
-
-        {comPlacar ? (
-          <section className="mt-5 rounded-xl bg-surface p-4 shadow-sm">
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <h2 className="text-lg font-bold">Apuração por estado · {scopeName(scope)}</h2>
-                <p className="text-xs text-muted">Clique num estado para ver o placar e a linha do tempo dele</p>
-              </div>
-              {scope !== "br" && (
-                <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
-                  ← Voltar para Brasil
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={guia.rever}
+                  className="shrink-0 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold whitespace-nowrap hover:bg-white/25"
+                >
+                  ❓ Como funciona?
                 </button>
-              )}
-            </div>
-            <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-              <div>
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold">Mapa</h3>
-                  {d?.nacional && (
-                    <span className="flex items-center gap-2 text-xs text-muted">
-                      Colorir por
-                      <Segmented
-                        value={destaque ?? "lider"}
-                        onChange={(v) => setDestaque(v === "lider" ? null : v)}
-                        options={[
-                          { value: "lider", label: "Líder" },
-                          ...d.nacional.candidatos.map((c) => ({ value: c.numero, label: primeiroNome(c.nome) })),
-                        ]}
-                      />
-                    </span>
-                  )}
-                </div>
-                {candidatoDestaque && (
-                  <p className="mb-1 text-xs text-muted">
-                    Intensidade = % de <b>{candidatoDestaque.nome}</b> em cada estado
-                  </p>
-                )}
-                {conteudoMapa}
+                <BotaoSom ativo={som.ativo} liberado={som.liberado} alternar={som.alternar} />
               </div>
-              <div>
-                <h3 className="mb-2 text-sm font-semibold">Linha do tempo · % dos votos válidos</h3>
-                {conteudoLinha}
+              <div className="flex items-center gap-2 text-sm">
+                <span key={apuracao.recebidoEm} className="inline-block size-2 animate-ping rounded-full bg-white [animation-iteration-count:2]" />
+                {d?.nacional ? <>Atualizado às {d.nacional.dataHora.slice(11, 16)} (TSE)</> : "Carregando…"}
               </div>
             </div>
-          </section>
-        ) : (
-          <>
-            <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-              <section className="rounded-xl bg-surface p-4 shadow-sm">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <h2 className="text-lg font-bold">{scopeName(scope)}</h2>
-                  {scope !== "br" && (
-                    <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
-                      ← Voltar para Brasil
-                    </button>
-                  )}
-                </div>
-                {atual ? (
-                  <>
-                    <CandidateList
-                      candidatos={atual.candidatos}
-                      destaque={destaque}
-                      onDestaque={setDestaque}
-                      vencedor={mostraDecisao && atual.decisao.garantido ? atual.decisao.lider : null}
-                    />
-                    {mostraDecisao && <DecisaoInfo r={atual} />}
-                    <ResumoVotos r={atual} />
-                  </>
-                ) : (
-                  <Skeleton />
-                )}
-              </section>
+          </div>
+        </header>
 
-              <section className="rounded-xl bg-surface p-4 shadow-sm">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-lg font-bold">Mapa por estado</h2>
-                  <span className="text-xs text-muted">
-                    {candidatoDestaque ? (
-                      <>
-                        Intensidade = % de <b>{candidatoDestaque.nome}</b> ·{" "}
-                        <button type="button" className="font-semibold text-accent hover:underline" onClick={() => setDestaque(null)}>
-                          ver quem lidera
-                        </button>
-                      </>
-                    ) : (
-                      "Cor do candidato que lidera em cada estado"
-                    )}
-                  </span>
-                </div>
-                {conteudoMapa}
-              </section>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5">
+          {apuracao.erro && !d && (
+            <div className="mb-4 rounded-lg border border-accent/40 bg-accent/10 p-3 text-sm">
+              Não foi possível carregar os dados do TSE ({apuracao.erro}). Tentando novamente…
             </div>
+          )}
 
+          {comPlacar && d?.nacional ? (
+            <>
+              <Placar
+                r={atual ?? d.nacional}
+                projecao={scope === "br" ? d.projecao : null}
+                onVoltar={scope !== "br" ? () => setScope("br") : undefined}
+              />
+            </>
+          ) : (
+            <>
+              {atual && <ProgressoBar r={atual} />}
+              {d?.projecao && d.nacional && <Projecao projecao={d.projecao} candidatos={d.nacional.candidatos} turno={d.nacional.turno} />}
+            </>
+          )}
+
+          {comPlacar ? (
             <section className="mt-5 rounded-xl bg-surface p-4 shadow-sm">
-              <div className="mb-3">
-                <h2 className="text-lg font-bold">Linha do tempo da apuração · {scopeName(scope)}</h2>
-                <p className="text-xs text-muted">% dos votos válidos de cada candidato conforme as seções são totalizadas</p>
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-bold">Apuração por estado · {scopeName(scope)}</h2>
+                  <p className="text-xs text-muted">Clique num estado para ver o placar e a linha do tempo dele</p>
+                </div>
+                {scope !== "br" && (
+                  <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
+                    ← Voltar para Brasil
+                  </button>
+                )}
               </div>
-              {conteudoLinha}
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                <div>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">Mapa</h3>
+                    {d?.nacional && (
+                      <span className="flex items-center gap-2 text-xs text-muted">
+                        Colorir por
+                        <Segmented
+                          value={destaque ?? "lider"}
+                          onChange={(v) => setDestaque(v === "lider" ? null : v)}
+                          options={[
+                            { value: "lider", label: "Líder" },
+                            ...d.nacional.candidatos.map((c) => ({ value: c.numero, label: primeiroNome(c.nome) })),
+                          ]}
+                        />
+                      </span>
+                    )}
+                  </div>
+                  {candidatoDestaque && (
+                    <p className="mb-1 text-xs text-muted">
+                      Intensidade = % de <b>{candidatoDestaque.nome}</b> em cada estado
+                    </p>
+                  )}
+                  {conteudoMapa}
+                </div>
+                <div>
+                  <h3 className="mb-2 text-sm font-semibold">Linha do tempo · % dos votos válidos</h3>
+                  {conteudoLinha}
+                </div>
+              </div>
             </section>
-          </>
-        )}
+          ) : (
+            <>
+              <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+                <section className="rounded-xl bg-surface p-4 shadow-sm">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h2 className="text-lg font-bold">{scopeName(scope)}</h2>
+                    {scope !== "br" && (
+                      <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
+                        ← Voltar para Brasil
+                      </button>
+                    )}
+                  </div>
+                  {atual ? (
+                    <>
+                      <CandidateList
+                        candidatos={atual.candidatos}
+                        destaque={destaque}
+                        onDestaque={setDestaque}
+                        vencedor={mostraDecisao && atual.decisao.garantido ? atual.decisao.lider : null}
+                      />
+                      {mostraDecisao && <DecisaoInfo r={atual} />}
+                      <ResumoVotos r={atual} />
+                    </>
+                  ) : (
+                    <Skeleton />
+                  )}
+                </section>
 
-        <footer className="mt-6 text-center text-xs text-muted">
-          <p className="mb-1 font-semibold text-foreground">Acompanhamento dedicado ao grupo do Zap Item 9</p>
-          Fonte: Tribunal Superior Eleitoral (resultados.tse.jus.br) · eleição {d?.eleicao ?? "…"} · atualização a cada{" "}
-          {POLL_MS / 1000}s
-          {d?.erros.length ? <span className="ml-2 text-accent">· {d.erros.length} abrangência(s) com falha na última consulta</span> : null}
-        </footer>
-      </main>
+                <section className="rounded-xl bg-surface p-4 shadow-sm">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-lg font-bold">Mapa por estado</h2>
+                    <span className="text-xs text-muted">
+                      {candidatoDestaque ? (
+                        <>
+                          Intensidade = % de <b>{candidatoDestaque.nome}</b> ·{" "}
+                          <button type="button" className="font-semibold text-accent hover:underline" onClick={() => setDestaque(null)}>
+                            ver quem lidera
+                          </button>
+                        </>
+                      ) : (
+                        "Cor do candidato que lidera em cada estado"
+                      )}
+                    </span>
+                  </div>
+                  {conteudoMapa}
+                </section>
+              </div>
 
-      <AvisoHumor
-        evento={som.evento}
-        onFechar={som.fecharAviso}
-        corLula={d?.nacional?.candidatos.find((c) => c.numero === "13")?.cor ?? "#D60828"}
-        corFlavio={d?.nacional?.candidatos.find((c) => c.numero === "22")?.cor ?? "#272D97"}
-      />
-    </div>
+              <section className="mt-5 rounded-xl bg-surface p-4 shadow-sm">
+                <div className="mb-3">
+                  <h2 className="text-lg font-bold">Linha do tempo da apuração · {scopeName(scope)}</h2>
+                  <p className="text-xs text-muted">% dos votos válidos de cada candidato conforme as seções são totalizadas</p>
+                </div>
+                {conteudoLinha}
+              </section>
+            </>
+          )}
+
+          <footer className="mt-6 text-center text-xs text-muted">
+            <p className="mb-1 font-semibold text-foreground">Acompanhamento dedicado ao grupo do Zap Item 9</p>
+            Fonte: Tribunal Superior Eleitoral (resultados.tse.jus.br) · eleição {d?.eleicao ?? "…"} · atualização a cada{" "}
+            {POLL_MS / 1000}s
+            {d?.erros.length ? <span className="ml-2 text-accent">· {d.erros.length} abrangência(s) com falha na última consulta</span> : null}
+          </footer>
+        </main>
+
+        <AvisoHumor
+          evento={som.evento}
+          onFechar={som.fecharAviso}
+          corLula={d?.nacional?.candidatos.find((c) => c.numero === "13")?.cor ?? "#D60828"}
+          corFlavio={d?.nacional?.candidatos.find((c) => c.numero === "22")?.cor ?? "#272D97"}
+        />
+      </div>
+      {guia.aberto && (
+        <Onboarding
+          podeFechar={guia.revendo}
+          onFechar={guia.fechar}
+          onConcluir={(comSom) => {
+            void som.definir(comSom);
+            guia.concluir();
+          }}
+        />
+      )}
+    </>
   );
 }
 

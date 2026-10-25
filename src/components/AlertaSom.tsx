@@ -7,14 +7,21 @@ import type { ResultadoAbrangencia } from "@/lib/types";
 
 const AVISO_MS = 20_000;
 
-/** Compara cada totalização nacional nova com a anterior e toca o som correspondente. */
-export function useAlertaSom() {
+/**
+ * Compara cada totalização nacional nova com a anterior e toca o som correspondente.
+ * Com `pausado` (ex.: tutorial aberto), segura o som e o aviso dos eventos que chegarem.
+ */
+export function useAlertaSom(pausado = false) {
   // ligado por padrão; o navegador só libera o áudio no 1º gesto do usuário na página
   const [ativo, setAtivo] = useState(true);
   const [liberado, setLiberado] = useState(false);
   const [evento, setEvento] = useState<(EventoHumor & { id: number }) | null>(null);
   const anterior = useRef<ResultadoAbrangencia | null>(null);
   const ativoRef = useRef(true);
+  const pausadoRef = useRef(pausado);
+  useEffect(() => {
+    pausadoRef.current = pausado;
+  });
 
   // qualquer clique, toque ou tecla na página libera o áudio
   useEffect(() => {
@@ -31,19 +38,24 @@ export function useAlertaSom() {
     if (!nacional) return;
     const ev = avaliarHumor(anterior.current, nacional);
     anterior.current = nacional;
-    if (!ev) return;
+    if (!ev || pausadoRef.current) return;
     setEvento({ ...ev, id: Date.now() });
     if (ativoRef.current) (ev.humor === "feliz" ? somFeliz : somTriste)();
   }, []);
 
-  const alternar = useCallback(async () => {
-    const ligar = !ativoRef.current;
-    if (ligar && !(await desbloquearAudio())) return;
+  /** Liga ou desliga o som; retorna se ficou no estado pedido (ligar depende do navegador liberar o áudio). */
+  const definir = useCallback(async (ligar: boolean) => {
+    if (ligar && !(await desbloquearAudio())) return false;
     ativoRef.current = ligar;
     setAtivo(ligar);
     setLiberado(audioLiberado());
-    if (ligar) arpejoFeliz(); // confirmação curta; os áudios ficam para os eventos
+    return true;
   }, []);
+
+  const alternar = useCallback(async () => {
+    const ligar = !ativoRef.current;
+    if ((await definir(ligar)) && ligar) arpejoFeliz(); // confirmação curta; os áudios ficam para os eventos
+  }, [definir]);
 
   // some com o aviso depois de alguns segundos
   useEffect(() => {
@@ -52,7 +64,7 @@ export function useAlertaSom() {
     return () => clearTimeout(t);
   }, [evento]);
 
-  return { ativo, liberado, alternar, evento, fecharAviso: () => setEvento(null), onNacional };
+  return { ativo, liberado, alternar, definir, evento, fecharAviso: () => setEvento(null), onNacional };
 }
 
 export function BotaoSom({ ativo, liberado, alternar }: { ativo: boolean; liberado: boolean; alternar: () => void }) {

@@ -95,6 +95,12 @@ async function tocarArquivo(url: string, reserva: () => void) {
   tocando = src;
 }
 
+/** Interrompe o áudio em andamento (os arquivos têm 15–22s). */
+export function pararSom() {
+  tocando?.stop();
+  tocando = null;
+}
+
 export const somFeliz = () => tocarArquivo(AUDIO_LULA, arpejoFeliz);
 export const somTriste = () => tocarArquivo(AUDIO_BOLSONARO, tromboneTriste);
 
