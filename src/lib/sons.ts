@@ -61,8 +61,11 @@ function nota(
   osc.stop(t0 + dur + 0.05);
 }
 
-const AUDIO_LULA = "/sons/lula.mp3"; // Lula sobe ou diminui a vantagem do adversário
+// Lula sobe ou diminui a vantagem do adversário: sorteia um dos áudios a cada alerta
+const AUDIOS_LULA = ["/sons/lula.mp3", "/sons/lula-bota-pra-virar.mp3"];
 const AUDIO_BOLSONARO = "/sons/bolsonaro.mp3"; // Flávio Bolsonaro sobe
+
+const sortear = <T>(lista: T[]) => lista[Math.floor(Math.random() * lista.length)];
 
 const buffers = new Map<string, Promise<AudioBuffer | null>>();
 let tocando: AudioBufferSourceNode | null = null;
@@ -107,13 +110,13 @@ async function tocarArquivo(url: string, reserva: () => void) {
   tocando = src;
 }
 
-/** Interrompe o áudio em andamento (os arquivos têm 15–22s) e descarta o que ainda estiver carregando. */
+/** Interrompe o áudio em andamento (os arquivos têm de 15s a 1min) e descarta o que ainda estiver carregando. */
 export function pararSom() {
   pedido++;
   interromper();
 }
 
-export const somFeliz = () => tocarArquivo(AUDIO_LULA, arpejoFeliz);
+export const somFeliz = () => tocarArquivo(sortear(AUDIOS_LULA), arpejoFeliz);
 export const somTriste = () => tocarArquivo(AUDIO_BOLSONARO, tromboneTriste);
 
 /** Arpejo maior ascendente com um brilho no final. Também confirma que o som foi ligado. */
