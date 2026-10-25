@@ -3,6 +3,7 @@
 import { fmtInt, fmtPct } from "@/lib/format";
 import type { Candidato, ProjecaoNacional, ResultadoAbrangencia } from "@/lib/types";
 import { scopeName } from "@/lib/ufs";
+import Vantagem from "./Vantagem";
 
 // Placar do 2º turno: progresso da apuração, agora × projeção, o veredito e o resumo dos votos, num só bloco.
 // Mostra o Brasil (com projeção) ou o estado selecionado no mapa (sem projeção, que é só nacional).
@@ -11,8 +12,10 @@ const pp = (n: number) =>
   `${Math.abs(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} p.p.`;
 
 const mi = (n: number) => `${(n / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+const compacto = (n: number) => (n >= 1e6 ? mi(n) : fmtInt(n));
 
-type Status = { texto: string; cor?: string; alerta?: boolean };
+// numero: o candidato para quem o selo aponta (nenhum enquanto é cedo ou indefinido)
+type Status = { texto: string; cor?: string; alerta?: boolean; numero?: string };
 
 export default function Placar({
   r,
@@ -40,11 +43,12 @@ export default function Placar({
 
   let status: Status | null = null;
   const eleito = r.candidatos.find((c) => c.eleito);
-  if (eleito) status = { texto: `${eleito.nome} eleito`, cor: eleito.cor };
+  if (eleito) status = { texto: `${eleito.nome} eleito`, cor: eleito.cor, numero: eleito.numero };
   else if (r.decisao.garantido)
     status = {
       texto: `✓ ${nome(r.decisao.lider ?? undefined)} ${r.scope === "br" ? "venceu (matematicamente)" : "venceu aqui"}`,
       cor: cor(r.decisao.lider ?? undefined),
+      numero: r.decisao.lider ?? undefined,
     };
   else if (lider && tend) {
     const o = alt.get(lider.numero) ?? lider.pctProj;
@@ -55,8 +59,16 @@ export default function Placar({
       ? { texto: "Indefinido", alerta: true }
       : cedo
         ? { texto: "Cedo para tendência", alerta: true }
-        : { texto: `Tendência: ${nome(lider.numero)} vence`, cor: cor(lider.numero) };
-  } else if (r.candidatos[0]?.votos) status = { texto: `${r.candidatos[0].nome} lidera`, cor: r.candidatos[0].cor };
+        : { texto: `Tendência: ${nome(lider.numero)} vence`, cor: cor(lider.numero), numero: lider.numero };
+  } else if (r.candidatos[0]?.votos) status = { texto: `${r.candidatos[0].nome} lidera`, cor: r.candidatos[0].cor, numero: r.candidatos[0].numero };
+
+  // centro do placar: a seta segue o selo; a linha de tendência traz a vantagem projetada
+  const rumo = status?.numero ? { cor: cor(status.numero) ?? "#8a909c", esquerda: status.numero === esq.numero } : null;
+  const linhaTend = status?.alerta
+    ? { texto: status.texto, alerta: true }
+    : mostraProj && lider && segundo && status?.numero === lider.numero && !eleito && !r.decisao.garantido
+      ? { texto: `Tendência: ${nome(lider.numero)} +${compacto(lider.votosProj - segundo.votosProj)}`, cor: cor(lider.numero) }
+      : undefined;
 
   return (
     <section className="rounded-xl bg-surface p-4 shadow-sm">
@@ -87,8 +99,9 @@ export default function Placar({
         <div className="h-full rounded-full bg-foreground transition-[width] duration-700" style={{ width: `${r.pctTotalizado}%` }} />
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-[1fr_auto_1fr]">
         <Lado c={esq} projetado={mostraProj ? pEsq : undefined} />
+        <Vantagem esq={esq} dir={dir} rumo={rumo} tendencia={linhaTend} />
         <Lado c={dir} projetado={mostraProj ? proj.get(dir.numero)?.pctProj : undefined} direita />
       </div>
 
