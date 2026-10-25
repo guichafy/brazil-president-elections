@@ -15,17 +15,19 @@ import {
 import { fmtInt, fmtPct } from "@/lib/format";
 import type { Candidato, PontoTimeline } from "@/lib/types";
 import { TOP_N } from "./CandidateList";
+import EsperaTimeline from "./EsperaTimeline";
 
 type Eixo = "apurado" | "hora";
 
 interface Props {
   pontos: PontoTimeline[];
   candidatos: Candidato[]; // ordem e cores atuais
+  atualizadoEm: string; // dataHora da última totalização do TSE
 }
 
 const horaFmt = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
-export default function Timeline({ pontos, candidatos }: Props) {
+export default function Timeline({ pontos, candidatos, atualizadoEm }: Props) {
   const [eixo, setEixo] = useState<Eixo>("apurado");
   const [foco, setFoco] = useState<"duelo" | "top" | "todos">("duelo");
   const [mostrarProj, setMostrarProj] = useState(true);
@@ -62,15 +64,7 @@ export default function Timeline({ pontos, candidatos }: Props) {
     return [Math.max(0, Math.floor(lo - 1)), Math.min(100, Math.ceil(hi + 1))];
   }, [pontos, visiveis, foco, comProj.length]);
 
-  if (pontos.length < 2) {
-    return (
-      <div className="flex h-72 items-center justify-center rounded-lg border border-dashed border-border text-center text-sm text-muted">
-        Coletando pontos da apuração…
-        <br />
-        A linha do tempo aparece a partir da 2ª atualização gravada (rode <code className="mx-1">npm run recorder</code>).
-      </div>
-    );
-  }
+  if (pontos.length < 2) return <EsperaTimeline candidatos={candidatos} atualizadoEm={atualizadoEm} />;
 
   const ultimo = data.length - 1;
 

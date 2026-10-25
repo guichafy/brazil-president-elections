@@ -110,7 +110,7 @@ export default function Apuracao() {
             referencia={referencia}
           />
         ) : (
-          <Timeline pontos={timeline.data.pontos} candidatos={atual.candidatos} />
+          <Timeline pontos={timeline.data.pontos} candidatos={atual.candidatos} atualizadoEm={atual.dataHora} />
         )
       ) : (
         <Skeleton />
