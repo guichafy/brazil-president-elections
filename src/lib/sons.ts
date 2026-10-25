@@ -1,5 +1,7 @@
-// Sons sintetizados com Web Audio (sem arquivos de áudio).
+// Alertas sonoros: trechos de áudio em public/sons/, tocados pelo Web Audio; se o arquivo
+// não existir ou falhar, toca um som sintetizado no lugar.
 // O navegador só libera o áudio depois de um gesto do usuário: chame `desbloquearAudio()` num clique.
+// Tocar pelo mesmo AudioContext (e não por <audio>) evita que o Safari bloqueie os alertas automáticos.
 
 let ctx: AudioContext | null = null;
 
@@ -57,8 +59,45 @@ function nota(
   osc.stop(t0 + dur + 0.05);
 }
 
-/** Arpejo maior ascendente com um brilho no final. */
-export function somFeliz() {
+const AUDIO_LULA = "/sons/lula.mp3"; // Lula sobe ou diminui a vantagem do adversário
+const AUDIO_BOLSONARO = "/sons/bolsonaro.mp3"; // Flávio Bolsonaro sobe
+
+const buffers = new Map<string, Promise<AudioBuffer | null>>();
+let tocando: AudioBufferSourceNode | null = null;
+
+function carregar(c: AudioContext, url: string): Promise<AudioBuffer | null> {
+  let b = buffers.get(url);
+  if (!b) {
+    b = fetch(url)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((dados) => c.decodeAudioData(dados))
+      .catch(() => null);
+    buffers.set(url, b);
+  }
+  return b;
+}
+
+/** Toca o arquivo (interrompendo o anterior, para não sobrepor); sem arquivo, usa o som sintetizado. */
+async function tocarArquivo(url: string, reserva: () => void) {
+  if (!ctx || ctx.state !== "running") return;
+  const buf = await carregar(ctx, url);
+  if (!buf) return reserva();
+  tocando?.stop();
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+  src.onended = () => {
+    if (tocando === src) tocando = null;
+  };
+  src.start();
+  tocando = src;
+}
+
+export const somFeliz = () => tocarArquivo(AUDIO_LULA, arpejoFeliz);
+export const somTriste = () => tocarArquivo(AUDIO_BOLSONARO, tromboneTriste);
+
+/** Arpejo maior ascendente com um brilho no final. Também confirma que o som foi ligado. */
+export function arpejoFeliz() {
   if (!ctx || ctx.state !== "running") return;
   const notas = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
   notas.forEach((f, i) => nota(ctx!, f, i * 0.11, i === notas.length - 1 ? 0.6 : 0.16));
@@ -66,7 +105,7 @@ export function somFeliz() {
 }
 
 /** "Uá-uá-uá-uáaa" de trombone triste, descendente. */
-export function somTriste() {
+function tromboneTriste() {
   if (!ctx || ctx.state !== "running") return;
   const opts = { tipo: "sawtooth" as OscillatorType, volume: 0.18, filtro: 900 };
   nota(ctx, 392, 0, 0.32, opts); // G4

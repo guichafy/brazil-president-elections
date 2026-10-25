@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { avaliarHumor, type EventoHumor, type Variacao } from "@/lib/humor";
-import { desbloquearAudio, somFeliz, somTriste } from "@/lib/sons";
+import { arpejoFeliz, desbloquearAudio, somFeliz, somTriste } from "@/lib/sons";
 import type { ResultadoAbrangencia } from "@/lib/types";
 
 const AVISO_MS = 20_000;
@@ -28,7 +28,7 @@ export function useAlertaSom() {
     if (ligar && !(await desbloquearAudio())) return;
     ativoRef.current = ligar;
     setAtivo(ligar);
-    if (ligar) somFeliz();
+    if (ligar) arpejoFeliz(); // confirmação curta; os áudios ficam para os eventos
   }, []);
 
   // some com o aviso depois de alguns segundos
@@ -49,16 +49,16 @@ export function BotaoSom({ ativo, alternar }: { ativo: boolean; alternar: () => 
         onClick={alternar}
         aria-pressed={ativo}
         className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${ativo ? "bg-white text-accent" : "bg-white/15 hover:bg-white/25"}`}
-        title="Som feliz: Lula sobe e Flávio cai · Som triste: Lula cai e Flávio sobe"
+        title="Áudio do Lula: Lula sobe e Flávio cai · Áudio do Bolsonaro: Lula cai e Flávio sobe"
       >
         {ativo ? "🔔 Som ligado" : "🔕 Ativar som"}
       </button>
       {ativo && (
         <span className="flex gap-1 text-xs">
-          <button type="button" onClick={somFeliz} className="rounded px-1 hover:bg-white/20" title="Testar som feliz">
+          <button type="button" onClick={somFeliz} className="rounded px-1 hover:bg-white/20" title="Testar áudio do Lula">
             🙂
           </button>
-          <button type="button" onClick={somTriste} className="rounded px-1 hover:bg-white/20" title="Testar som triste">
+          <button type="button" onClick={somTriste} className="rounded px-1 hover:bg-white/20" title="Testar áudio do Bolsonaro">
             🙁
           </button>
         </span>
