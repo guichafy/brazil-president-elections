@@ -30,6 +30,12 @@ function variacao(antes: ResultadoAbrangencia, depois: ResultadoAbrangencia, num
   return { nome: d.nome, pctAntes: a.pct, pct: d.pct, dPct: d.pct - a.pct, dVotos: d.votos - a.votos };
 }
 
+/** Lula eleito pelo TSE ou, no 2º turno, com vitória já garantida pela conta (como no selo do placar). */
+export function lulaVenceu(nacional: ResultadoAbrangencia): boolean {
+  if (nacional.candidatos.find((c) => c.numero === LULA)?.eleito) return true;
+  return nacional.turno === "2" && nacional.decisao.garantido && nacional.decisao.lider === LULA;
+}
+
 /**
  * Compara duas totalizações nacionais.
  * - feliz: Lula ganha votos e percentual, e Flávio perde percentual

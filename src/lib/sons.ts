@@ -64,6 +64,7 @@ function nota(
 // Lula sobe ou diminui a vantagem do adversário: sorteia um dos áudios a cada alerta
 const AUDIOS_LULA = ["/sons/lula.mp3", "/sons/lula-bota-pra-virar.mp3"];
 const AUDIO_BOLSONARO = "/sons/bolsonaro.mp3"; // Flávio Bolsonaro sobe
+const AUDIO_VITORIA = "/sons/lula-vitoria.mp3"; // Lula vence a eleição: "Faz o L" (19s)
 
 const sortear = <T>(lista: T[]) => lista[Math.floor(Math.random() * lista.length)];
 
@@ -123,6 +124,7 @@ export function pararSom() {
 
 export const somFeliz = () => tocarArquivo(sortear(AUDIOS_LULA), arpejoFeliz);
 export const somTriste = () => tocarArquivo(AUDIO_BOLSONARO, tromboneTriste);
+export const somVitoria = () => tocarArquivo(AUDIO_VITORIA, arpejoFeliz);
 
 /** Arpejo maior ascendente com um brilho no final. Também confirma que o som foi ligado. */
 export function arpejoFeliz() {

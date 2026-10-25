@@ -2,24 +2,29 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import AnimacaoHumor from "./AnimacaoHumor";
-import { avaliarHumor, type EventoHumor, type Variacao } from "@/lib/humor";
-import { arpejoFeliz, audioLiberado, desbloquearAudio, pararSom, somFeliz, somTriste } from "@/lib/sons";
+import type { EventoVitoria } from "./AvisoVitoria";
+import { avaliarHumor, LULA, lulaVenceu, type EventoHumor, type Variacao } from "@/lib/humor";
+import { arpejoFeliz, audioLiberado, desbloquearAudio, pararSom, somFeliz, somTriste, somVitoria } from "@/lib/sons";
 import type { ResultadoAbrangencia } from "@/lib/types";
 
 const AVISO_MS = 15_000; // sem som; com som, o aviso dura o mesmo que o áudio sorteado
 // depois de um aviso, as viradas seguintes dentro deste intervalo são descartadas (sem aviso nem áudio)
 const INTERVALO_AVISOS_MS = 5 * 60_000;
+const VITORIA_MS = 30_000; // comemoração sem som (com som, dura o mesmo que o áudio)
 
 /**
  * Compara cada totalização nacional nova com a anterior e toca o som correspondente.
  * Com `pausado` (ex.: tutorial aberto), segura o som e o aviso dos eventos que chegarem.
  * Avisa no máximo uma vez a cada 5 minutos: nada fica na fila para depois.
+ * A vitória do Lula fura esse intervalo, comemora uma vez só (a pausa só adia) e encerra os avisos de sobe e desce.
  */
 export function useAlertaSom(pausado = false) {
   // ligado por padrão; o navegador só libera o áudio no 1º gesto do usuário na página
   const [ativo, setAtivo] = useState(true);
   const [liberado, setLiberado] = useState(false);
   const [evento, setEvento] = useState<EventoAviso | null>(null);
+  const [vitoria, setVitoria] = useState<EventoVitoria | null>(null);
+  const comemorou = useRef(false);
   const anterior = useRef<ResultadoAbrangencia | null>(null);
   const ultimoAviso = useRef(-Infinity);
   const ativoRef = useRef(true);
@@ -39,25 +44,73 @@ export function useAlertaSom(pausado = false) {
     return () => eventos.forEach((e) => window.removeEventListener(e, liberar));
   }, [liberado]);
 
-  const onNacional = useCallback((nacional: ResultadoAbrangencia | null) => {
-    if (!nacional) return;
-    const ev = avaliarHumor(anterior.current, nacional);
-    anterior.current = nacional;
-    if (!ev || pausadoRef.current) return;
-    const agora = Date.now();
-    if (agora - ultimoAviso.current < INTERVALO_AVISOS_MS) return;
-    ultimoAviso.current = agora;
+  const comemorar = useCallback((nacional: ResultadoAbrangencia | null, teste = false) => {
+    const lula = nacional?.candidatos.find((c) => c.numero === LULA);
+    pararSom();
+    setEvento(null);
+    const id = Date.now();
     const mostrar = (duracao: number | null) =>
-      setEvento({ ...ev, id: agora, duracaoMs: duracao ? duracao * 1000 : AVISO_MS });
-    // com som, o aviso só abre quando o áudio começa, para os dois terminarem juntos
-    if (ativoRef.current) (ev.humor === "feliz" ? somFeliz : somTriste)().then(mostrar);
+      setVitoria({
+        id,
+        duracaoMs: duracao ? duracao * 1000 : VITORIA_MS,
+        eleito: !!lula?.eleito,
+        pct: lula?.pct ?? 50.6,
+        votos: lula?.votos ?? 0,
+        teste,
+        // som ligado mas ainda bloqueado pelo navegador (ninguém tocou na página)
+        semSom: ativoRef.current && !duracao,
+      });
+    if (ativoRef.current) somVitoria().then(mostrar);
     else mostrar(null);
   }, []);
+
+  const onNacional = useCallback(
+    (nacional: ResultadoAbrangencia | null) => {
+      if (!nacional) return;
+      const ev = avaliarHumor(anterior.current, nacional);
+      anterior.current = nacional;
+      if (comemorou.current) return;
+      // com o guia aberto, a vitória espera a próxima consulta depois que ele fechar
+      if (lulaVenceu(nacional)) {
+        if (pausadoRef.current) return;
+        comemorou.current = true;
+        comemorar(nacional);
+        return;
+      }
+      if (!ev || pausadoRef.current) return;
+      const agora = Date.now();
+      if (agora - ultimoAviso.current < INTERVALO_AVISOS_MS) return;
+      ultimoAviso.current = agora;
+      // se a vitória chegar enquanto o áudio carrega, o aviso não abre por baixo da comemoração
+      const mostrar = (duracao: number | null) =>
+        !comemorou.current && setEvento({ ...ev, id: agora, duracaoMs: duracao ? duracao * 1000 : AVISO_MS });
+      // com som, o aviso só abre quando o áudio começa, para os dois terminarem juntos
+      if (ativoRef.current) (ev.humor === "feliz" ? somFeliz : somTriste)().then(mostrar);
+      else mostrar(null);
+    },
+    [comemorar],
+  );
 
   const fecharAviso = useCallback(() => {
     pararSom();
     setEvento(null);
   }, []);
+
+  const fecharVitoria = useCallback(() => {
+    pararSom();
+    setVitoria(null);
+  }, []);
+
+  /** Libera o áudio no toque e toca o da vitória, recomeçando a contagem com a duração dele. */
+  const ouvirVitoria = useCallback(async () => {
+    if (!(await desbloquearAudio())) return;
+    setLiberado(true);
+    const duracao = await somVitoria();
+    if (duracao) setVitoria((v) => v && { ...v, duracaoMs: duracao * 1000, semSom: false });
+  }, []);
+
+  /** Mostra a comemoração com os números atuais, sem contar como a de verdade. */
+  const testarVitoria = useCallback(() => comemorar(anterior.current, true), [comemorar]);
 
   /** Liga ou desliga o som; retorna se ficou no estado pedido (ligar depende do navegador liberar o áudio). */
   const definir = useCallback(async (ligar: boolean) => {
@@ -80,10 +133,26 @@ export function useAlertaSom(pausado = false) {
     return () => clearTimeout(t);
   }, [evento, fecharAviso]);
 
-  return { ativo, liberado, alternar, definir, evento, fecharAviso, onNacional };
+  useEffect(() => {
+    if (!vitoria) return;
+    const t = setTimeout(fecharVitoria, vitoria.duracaoMs);
+    return () => clearTimeout(t);
+  }, [vitoria, fecharVitoria]);
+
+  return { ativo, liberado, alternar, definir, evento, fecharAviso, onNacional, vitoria, fecharVitoria, ouvirVitoria, testarVitoria };
 }
 
-export function BotaoSom({ ativo, liberado, alternar }: { ativo: boolean; liberado: boolean; alternar: () => void }) {
+export function BotaoSom({
+  ativo,
+  liberado,
+  alternar,
+  testarVitoria,
+}: {
+  ativo: boolean;
+  liberado: boolean;
+  alternar: () => void;
+  testarVitoria: () => void;
+}) {
   // ligado mas ainda bloqueado pelo navegador: o clique (que já libera o áudio) não deve desligar
   const aguardando = ativo && !liberado;
   return (
@@ -104,6 +173,9 @@ export function BotaoSom({ ativo, liberado, alternar }: { ativo: boolean; libera
           </button>
           <button type="button" onClick={somTriste} className="rounded px-1 hover:bg-white/20" title="Testar áudio do Bolsonaro">
             🙁
+          </button>
+          <button type="button" onClick={testarVitoria} className="rounded px-1 hover:bg-white/20" title="Testar comemoração da vitória do Lula">
+            🏆
           </button>
         </span>
       )}

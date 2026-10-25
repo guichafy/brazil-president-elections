@@ -5,6 +5,7 @@ import { fmtInt, fmtPct } from "@/lib/format";
 import type { ApuracaoResponse, ComparacaoResponse, ResultadoAbrangencia, TimelineResponse } from "@/lib/types";
 import { UF_LIST, scopeName, type Scope } from "@/lib/ufs";
 import { AvisoHumor, BotaoSom, useAlertaSom } from "./AlertaSom";
+import AvisoVitoria from "./AvisoVitoria";
 import BrazilMap, { DecisaoInfo, estiloCss, ufEstilo, type MapMode } from "./BrazilMap";
 import CandidateList from "./CandidateList";
 import Comparacao from "./Comparacao";
@@ -140,7 +141,7 @@ export default function Apuracao() {
                 >
                   ❓ Como funciona?
                 </button>
-                <BotaoSom ativo={som.ativo} liberado={som.liberado} alternar={som.alternar} />
+                <BotaoSom ativo={som.ativo} liberado={som.liberado} alternar={som.alternar} testarVitoria={som.testarVitoria} />
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span key={apuracao.recebidoEm} className="inline-block size-2 animate-ping rounded-full bg-white [animation-iteration-count:2]" />
@@ -287,6 +288,12 @@ export default function Apuracao() {
           onFechar={som.fecharAviso}
           corLula={d?.nacional?.candidatos.find((c) => c.numero === "13")?.cor ?? "#D60828"}
           corFlavio={d?.nacional?.candidatos.find((c) => c.numero === "22")?.cor ?? "#272D97"}
+        />
+        <AvisoVitoria
+          vitoria={som.vitoria}
+          onFechar={som.fecharVitoria}
+          onOuvir={som.ouvirVitoria}
+          corLula={d?.nacional?.candidatos.find((c) => c.numero === "13")?.cor ?? "#D60828"}
         />
       </div>
       {guia.aberto && (
