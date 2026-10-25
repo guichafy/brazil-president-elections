@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { EASE, fixo, rgba, transformacao } from "@/lib/lottie";
 import type { Candidato } from "@/lib/types";
 
 interface Props {
@@ -21,24 +22,6 @@ const VICE = LIDER.map((v) => 100 - v);
 
 const Y = (v: number) => 10 + ((60 - v) / 20) * (H - 20);
 const pontosDe = (serie: number[]) => serie.map((v, i): [number, number] => [12 + (i * (W - 24)) / (serie.length - 1), Y(v)]);
-
-function rgba(hex: string): [number, number, number, number] {
-  const n = parseInt(hex.replace("#", "").slice(0, 6), 16);
-  return Number.isNaN(n) ? [0.6, 0.6, 0.6, 1] : [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, 1];
-}
-
-const fixo = <T,>(k: T) => ({ a: 0, k });
-const EASE = { i: { x: [0.4], y: [1] }, o: { x: [0.6], y: [0] } };
-const transformacao = (ancora: [number, number] = [0, 0], escala: unknown = fixo([100, 100])) => ({
-  ty: "tr",
-  p: fixo(ancora),
-  a: fixo(ancora),
-  s: escala,
-  r: fixo(0),
-  o: fixo(100),
-  sk: fixo(0),
-  sa: fixo(0),
-});
 
 // curva suave passando pelos pontos (Catmull-Rom convertido em tangentes de Bézier)
 function caminho(pts: [number, number][]) {

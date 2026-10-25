@@ -1,15 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import AnimacaoHumor from "./AnimacaoHumor";
 import { avaliarHumor, type EventoHumor, type Variacao } from "@/lib/humor";
 import { arpejoFeliz, audioLiberado, desbloquearAudio, somFeliz, somTriste } from "@/lib/sons";
 import type { ResultadoAbrangencia } from "@/lib/types";
 
-const AVISO_MS = 20_000;
+const AVISO_MS = 15_000;
+// depois de um aviso, as viradas seguintes dentro deste intervalo são descartadas (sem aviso nem áudio)
+const INTERVALO_AVISOS_MS = 5 * 60_000;
 
 /**
  * Compara cada totalização nacional nova com a anterior e toca o som correspondente.
  * Com `pausado` (ex.: tutorial aberto), segura o som e o aviso dos eventos que chegarem.
+ * Avisa no máximo uma vez a cada 5 minutos: nada fica na fila para depois.
  */
 export function useAlertaSom(pausado = false) {
   // ligado por padrão; o navegador só libera o áudio no 1º gesto do usuário na página
@@ -17,6 +21,7 @@ export function useAlertaSom(pausado = false) {
   const [liberado, setLiberado] = useState(false);
   const [evento, setEvento] = useState<(EventoHumor & { id: number }) | null>(null);
   const anterior = useRef<ResultadoAbrangencia | null>(null);
+  const ultimoAviso = useRef(-Infinity);
   const ativoRef = useRef(true);
   const pausadoRef = useRef(pausado);
   useEffect(() => {
@@ -39,7 +44,10 @@ export function useAlertaSom(pausado = false) {
     const ev = avaliarHumor(anterior.current, nacional);
     anterior.current = nacional;
     if (!ev || pausadoRef.current) return;
-    setEvento({ ...ev, id: Date.now() });
+    const agora = Date.now();
+    if (agora - ultimoAviso.current < INTERVALO_AVISOS_MS) return;
+    ultimoAviso.current = agora;
+    setEvento({ ...ev, id: agora });
     if (ativoRef.current) (ev.humor === "feliz" ? somFeliz : somTriste)();
   }, []);
 
@@ -114,38 +122,60 @@ function Linha({ v, cor }: { v: Variacao; cor: string }) {
   );
 }
 
-export function AvisoHumor({
-  evento,
-  onFechar,
-  corLula,
-  corFlavio,
-}: {
-  evento: EventoHumor | null;
+interface PropsAviso {
+  evento: (EventoHumor & { id: number }) | null;
   onFechar: () => void;
   corLula: string;
   corFlavio: string;
-}) {
+}
+
+/** Aviso centralizado de quem subiu e quem caiu; cada evento novo reinicia a animação e a contagem. */
+export function AvisoHumor({ evento, ...props }: PropsAviso) {
   if (!evento) return null;
+  return <Aviso key={evento.id} evento={evento} {...props} />;
+}
+
+function Aviso({ evento, onFechar, corLula, corFlavio }: Omit<PropsAviso, "evento"> & { evento: EventoHumor }) {
   const feliz = evento.humor === "feliz";
+
+  useEffect(() => {
+    const aoTeclar = (e: KeyboardEvent) => e.key === "Escape" && onFechar();
+    window.addEventListener("keydown", aoTeclar);
+    return () => window.removeEventListener("keydown", aoTeclar);
+  }, [onFechar]);
+
   return (
-    <div
-      role="status"
-      className="fixed right-4 bottom-4 z-50 w-96 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-surface text-sm shadow-xl"
-    >
-      <div className="h-1" style={{ background: feliz ? corLula : corFlavio }} />
-      <div className="p-3">
-        <div className="mb-2 flex items-start justify-between gap-2">
-          <div className="font-semibold">
+    <div className="aviso-fundo fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onFechar}>
+      <div
+        role="status"
+        onClick={(e) => e.stopPropagation()}
+        className="aviso-cartao relative w-[28rem] max-w-full overflow-hidden rounded-2xl border border-border bg-surface text-sm shadow-2xl"
+      >
+        <button
+          type="button"
+          onClick={onFechar}
+          className="absolute top-3 right-3 rounded px-1.5 text-muted hover:text-foreground"
+          aria-label="Fechar aviso"
+        >
+          ✕
+        </button>
+        <div className="flex flex-col items-center px-5 pt-5 pb-4">
+          <AnimacaoHumor corLula={corLula} corFlavio={corFlavio} lulaSobe={feliz} />
+          <div className="mt-1 text-center text-xl font-bold">
             {feliz ? "🎉 Lula subindo, Flávio caindo" : "😢 Lula caindo, Flávio subindo"}
-            <div className="text-xs font-normal text-muted">Atualização das {evento.dataHora.slice(11, 16)}</div>
           </div>
-          <button type="button" onClick={onFechar} className="text-muted hover:text-foreground" aria-label="Fechar aviso">
-            ✕
-          </button>
+          <div className="mb-4 text-xs text-muted">Atualização das {evento.dataHora.slice(11, 16)}</div>
+          <div className="w-full space-y-1 rounded-lg bg-track/60 px-3 py-2">
+            <Linha v={evento.lula} cor={corLula} />
+            <Linha v={evento.flavio} cor={corFlavio} />
+          </div>
         </div>
-        <div className="space-y-1">
-          <Linha v={evento.lula} cor={corLula} />
-          <Linha v={evento.flavio} cor={corFlavio} />
+        {/* contagem até o aviso sumir sozinho */}
+        <div className="h-1 bg-track">
+          <div
+            className="h-full origin-left"
+            style={{ background: feliz ? corLula : corFlavio, animation: `aviso-contagem ${AVISO_MS}ms linear forwards` }}
+          />
         </div>
       </div>
     </div>

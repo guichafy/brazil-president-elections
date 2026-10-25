@@ -79,12 +79,24 @@ function carregar(c: AudioContext, url: string): Promise<AudioBuffer | null> {
   return b;
 }
 
-/** Toca o arquivo (interrompendo o anterior, para não sobrepor); sem arquivo, usa o som sintetizado. */
+let pedido = 0; // só o pedido mais recente toca, mesmo que um anterior termine de carregar depois
+
+function interromper() {
+  tocando?.stop();
+  tocando = null;
+}
+
+/**
+ * Toca o arquivo interrompendo o anterior, para nunca haver dois áudios ao mesmo tempo;
+ * sem arquivo, usa o som sintetizado.
+ */
 async function tocarArquivo(url: string, reserva: () => void) {
   if (!ctx || ctx.state !== "running") return;
+  const vez = ++pedido;
   const buf = await carregar(ctx, url);
+  if (vez !== pedido) return;
+  interromper();
   if (!buf) return reserva();
-  tocando?.stop();
   const src = ctx.createBufferSource();
   src.buffer = buf;
   src.connect(ctx.destination);
@@ -95,10 +107,10 @@ async function tocarArquivo(url: string, reserva: () => void) {
   tocando = src;
 }
 
-/** Interrompe o áudio em andamento (os arquivos têm 15–22s). */
+/** Interrompe o áudio em andamento (os arquivos têm 15–22s) e descarta o que ainda estiver carregando. */
 export function pararSom() {
-  tocando?.stop();
-  tocando = null;
+  pedido++;
+  interromper();
 }
 
 export const somFeliz = () => tocarArquivo(AUDIO_LULA, arpejoFeliz);
