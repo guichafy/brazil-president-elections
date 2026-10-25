@@ -116,12 +116,11 @@ export default function Apuracao() {
 
         {comPlacar && d?.nacional ? (
           <>
-            <Placar r={d.nacional} projecao={d.projecao} />
-            {atual && scope !== "br" && (
-              <div className="mt-3">
-                <ProgressoBar r={atual} rotulo={scopeName(scope)} />
-              </div>
-            )}
+            <Placar
+              r={atual ?? d.nacional}
+              projecao={scope === "br" ? d.projecao : null}
+              onVoltar={scope !== "br" ? () => setScope("br") : undefined}
+            />
           </>
         ) : (
           <>
@@ -130,31 +129,36 @@ export default function Apuracao() {
           </>
         )}
 
-        <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-          <section className="rounded-xl bg-surface p-4 shadow-sm">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-lg font-bold">{scopeName(scope)}</h2>
-              {scope !== "br" && (
-                <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
-                  ← Voltar para Brasil
-                </button>
+        <div
+          className={`mt-5 grid grid-cols-[minmax(0,1fr)] gap-5 ${comPlacar ? "" : "lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]"}`}
+        >
+          {/* no 2º turno o placar já mostra o resultado da abrangência; o card fica só no layout do 1º turno */}
+          {!comPlacar && (
+            <section className="rounded-xl bg-surface p-4 shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h2 className="text-lg font-bold">{scopeName(scope)}</h2>
+                {scope !== "br" && (
+                  <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
+                    ← Voltar para Brasil
+                  </button>
+                )}
+              </div>
+              {atual ? (
+                <>
+                  <CandidateList
+                    candidatos={atual.candidatos}
+                    destaque={destaque}
+                    onDestaque={setDestaque}
+                    vencedor={mostraDecisao && atual.decisao.garantido ? atual.decisao.lider : null}
+                  />
+                  {mostraDecisao && <DecisaoInfo r={atual} />}
+                  <ResumoVotos r={atual} />
+                </>
+              ) : (
+                <Skeleton />
               )}
-            </div>
-            {atual ? (
-              <>
-                <CandidateList
-                  candidatos={atual.candidatos}
-                  destaque={destaque}
-                  onDestaque={setDestaque}
-                  vencedor={mostraDecisao && atual.decisao.garantido ? atual.decisao.lider : null}
-                />
-                {mostraDecisao && <DecisaoInfo r={atual} />}
-                <ResumoVotos r={atual} />
-              </>
-            ) : (
-              <Skeleton />
-            )}
-          </section>
+            </section>
+          )}
 
           <section className="rounded-xl bg-surface p-4 shadow-sm">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -173,11 +177,11 @@ export default function Apuracao() {
               </span>
             </div>
             {d ? (
-              <>
+              <div className={comPlacar ? "mx-auto max-w-3xl" : ""}>
                 <BrazilMap ufs={d.ufs} selected={scope} onSelect={setScope} mode={mapMode} />
                 {mapMode.tipo === "lider" && <Legenda d={d} />}
                 <UfGrid d={d} selected={scope} onSelect={setScope} mode={mapMode} />
-              </>
+              </div>
             ) : (
               <Skeleton />
             )}
@@ -256,13 +260,13 @@ function Item9() {
   );
 }
 
-function ProgressoBar({ r, rotulo }: { r: ResultadoAbrangencia; rotulo?: string }) {
+function ProgressoBar({ r }: { r: ResultadoAbrangencia }) {
   return (
     <div className="rounded-xl bg-surface p-4 shadow-sm">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <span className="text-3xl font-bold tabular">{fmtPct(r.pctTotalizado)}</span>
-          <span className="ml-2 text-sm text-muted">das seções totalizadas{rotulo && <> · {rotulo}</>}</span>
+          <span className="ml-2 text-sm text-muted">das seções totalizadas</span>
         </div>
         <div className="text-xs text-muted tabular">
           {fmtInt(r.secoesTotalizadas)} de {fmtInt(r.secoesTotais)} seções

@@ -2,8 +2,10 @@
 
 import { fmtInt, fmtPct } from "@/lib/format";
 import type { Candidato, ProjecaoNacional, ResultadoAbrangencia } from "@/lib/types";
+import { scopeName } from "@/lib/ufs";
 
-// Placar do 2º turno: progresso da apuração, agora × projeção e o veredito, num só bloco.
+// Placar do 2º turno: progresso da apuração, agora × projeção, o veredito e o resumo dos votos, num só bloco.
+// Mostra o Brasil (com projeção) ou o estado selecionado no mapa (sem projeção, que é só nacional).
 
 const pp = (n: number) =>
   `${Math.abs(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} p.p.`;
@@ -12,7 +14,15 @@ const mi = (n: number) => `${(n / 1e6).toLocaleString("pt-BR", { maximumFraction
 
 type Status = { texto: string; cor?: string; alerta?: boolean };
 
-export default function Placar({ r, projecao }: { r: ResultadoAbrangencia; projecao: ProjecaoNacional | null }) {
+export default function Placar({
+  r,
+  projecao,
+  onVoltar,
+}: {
+  r: ResultadoAbrangencia;
+  projecao: ProjecaoNacional | null;
+  onVoltar?: () => void;
+}) {
   // lados fixos pelo número do candidato, para o placar não trocar de lado quando a liderança muda
   const [esq, dir] = [...r.candidatos].sort((a, b) => Number(a.numero) - Number(b.numero));
   if (!esq || !dir) return null;
@@ -31,7 +41,11 @@ export default function Placar({ r, projecao }: { r: ResultadoAbrangencia; proje
   let status: Status | null = null;
   const eleito = r.candidatos.find((c) => c.eleito);
   if (eleito) status = { texto: `${eleito.nome} eleito`, cor: eleito.cor };
-  else if (r.decisao.garantido) status = { texto: `✓ ${nome(r.decisao.lider ?? undefined)} venceu (matematicamente)`, cor: cor(r.decisao.lider ?? undefined) };
+  else if (r.decisao.garantido)
+    status = {
+      texto: `✓ ${nome(r.decisao.lider ?? undefined)} ${r.scope === "br" ? "venceu (matematicamente)" : "venceu aqui"}`,
+      cor: cor(r.decisao.lider ?? undefined),
+    };
   else if (lider && tend) {
     const o = alt.get(lider.numero) ?? lider.pctProj;
     const indefinido = Math.min(o, lider.pctProj) < 50 && Math.max(o, lider.pctProj) >= 50;
@@ -42,10 +56,18 @@ export default function Placar({ r, projecao }: { r: ResultadoAbrangencia; proje
       : cedo
         ? { texto: "Cedo para tendência", alerta: true }
         : { texto: `Tendência: ${nome(lider.numero)} vence`, cor: cor(lider.numero) };
-  }
+  } else if (r.candidatos[0]?.votos) status = { texto: `${r.candidatos[0].nome} lidera`, cor: r.candidatos[0].cor };
 
   return (
     <section className="rounded-xl bg-surface p-4 shadow-sm">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h2 className="text-lg font-bold">{scopeName(r.scope)}</h2>
+        {onVoltar && (
+          <button type="button" onClick={onVoltar} className="text-sm font-semibold text-accent hover:underline">
+            ← Voltar para Brasil
+          </button>
+        )}
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm tabular">
           <span className="text-2xl font-bold">{fmtPct(r.pctTotalizado)}</span>
@@ -82,6 +104,8 @@ export default function Placar({ r, projecao }: { r: ResultadoAbrangencia; proje
       <div className="text-[11px] text-muted">
         {mostraProj ? "Barra cheia = agora · barra fina = projeção para 100% das urnas" : "% dos votos válidos"}
       </div>
+
+      <Resumo r={r} />
 
       {mostraProj && tend && lider && segundo && (
         <details className="mt-2 text-xs text-muted">
@@ -141,5 +165,24 @@ function Barra({ esq, dir, pctEsq, altura, fraca }: { esq: Candidato; dir: Candi
       <div className="transition-[width] duration-700" style={{ width: `${pctEsq}%`, background: esq.cor }} />
       <div className="flex-1" style={{ background: dir.cor }} />
     </div>
+  );
+}
+
+function Resumo({ r }: { r: ResultadoAbrangencia }) {
+  const itens = [
+    { label: "Válidos", valor: fmtInt(r.validos) },
+    { label: "Brancos", valor: fmtPct(r.pctBrancos) },
+    { label: "Nulos", valor: fmtPct(r.pctNulos) },
+    { label: "Abstenção", valor: fmtPct(r.pctAbstencao) },
+  ];
+  return (
+    <dl className="mt-3 grid grid-cols-4 gap-2 border-t border-border pt-3">
+      {itens.map((i) => (
+        <div key={i.label} className="min-w-0">
+          <dt className="text-xs text-muted">{i.label}</dt>
+          <dd className="truncate text-sm font-semibold tabular sm:text-base">{i.valor}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
