@@ -8,6 +8,7 @@ import { AvisoHumor, BotaoSom, useAlertaSom } from "./AlertaSom";
 import BrazilMap, { DecisaoInfo, estiloCss, ufEstilo, type MapMode } from "./BrazilMap";
 import CandidateList from "./CandidateList";
 import Comparacao from "./Comparacao";
+import Placar from "./Placar";
 import Projecao from "./Projecao";
 import Timeline from "./Timeline";
 
@@ -78,6 +79,8 @@ export default function Apuracao() {
 
   // as referências são nacionais; o 1º T × 2º T só faz sentido durante o 2º turno
   const segundoTurno = d?.nacional?.turno === "2";
+  // no 2º turno, progresso + projeção viram um placar nacional único
+  const comPlacar = segundoTurno && d?.nacional?.candidatos.length === 2;
   const abas: { value: Vista; label: string }[] = [{ value: "evolucao", label: "Evolução" }];
   if (scope === "br" && segundoTurno && comparacao.data?.primeiroTurno) abas.push({ value: "turnos", label: "1ºT x 2ºT" });
   if (scope === "br" && segundoTurno && comparacao.data?.ano2022) abas.push({ value: "2022", label: "2022 x 2026" });
@@ -111,9 +114,21 @@ export default function Apuracao() {
           </div>
         )}
 
-        {atual && <ProgressoBar r={atual} />}
-
-        {d?.projecao && d.nacional && <Projecao projecao={d.projecao} candidatos={d.nacional.candidatos} turno={d.nacional.turno} />}
+        {comPlacar && d?.nacional ? (
+          <>
+            <Placar r={d.nacional} projecao={d.projecao} />
+            {atual && scope !== "br" && (
+              <div className="mt-3">
+                <ProgressoBar r={atual} rotulo={scopeName(scope)} />
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {atual && <ProgressoBar r={atual} />}
+            {d?.projecao && d.nacional && <Projecao projecao={d.projecao} candidatos={d.nacional.candidatos} turno={d.nacional.turno} />}
+          </>
+        )}
 
         <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
           <section className="rounded-xl bg-surface p-4 shadow-sm">
@@ -241,13 +256,13 @@ function Item9() {
   );
 }
 
-function ProgressoBar({ r }: { r: ResultadoAbrangencia }) {
+function ProgressoBar({ r, rotulo }: { r: ResultadoAbrangencia; rotulo?: string }) {
   return (
     <div className="rounded-xl bg-surface p-4 shadow-sm">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <span className="text-3xl font-bold tabular">{fmtPct(r.pctTotalizado)}</span>
-          <span className="ml-2 text-sm text-muted">das seções totalizadas</span>
+          <span className="ml-2 text-sm text-muted">das seções totalizadas{rotulo && <> · {rotulo}</>}</span>
         </div>
         <div className="text-xs text-muted tabular">
           {fmtInt(r.secoesTotalizadas)} de {fmtInt(r.secoesTotais)} seções
