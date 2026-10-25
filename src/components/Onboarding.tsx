@@ -105,7 +105,7 @@ export default function Onboarding({
   };
 
   const ouviuTudo = ouvidos.size === 2;
-  const passos: { titulo: string; conteudo: ReactNode; trava?: string; pulavel?: boolean }[] = [
+  const passos: { titulo: string; conteudo: ReactNode; trava?: string }[] = [
     { titulo: "Bem-vindo à apuração ao vivo", conteudo: <BoasVindas /> },
     { titulo: "Como ler o placar", conteudo: <ComoLerPlacar /> },
     { titulo: "Mapa e linha do tempo", conteudo: <MapaELinha /> },
@@ -113,8 +113,6 @@ export default function Onboarding({
       titulo: "Ouça os dois alertas",
       conteudo: <Sons ouvidos={ouvidos} bloqueado={bloqueado} onTestar={testar} />,
       trava: ouviuTudo ? undefined : "Toque nos dois áudios para continuar",
-      // pular conclui com som: o clique já serve de gesto para liberar o áudio no navegador
-      pulavel: true,
     },
     { titulo: "Tudo pronto", conteudo: <Pronto onConcluir={onConcluir} /> },
   ];
@@ -164,7 +162,9 @@ export default function Onboarding({
                 ← Voltar
               </button>
             )}
-            {atual.pulavel && (
+            {/* na 1ª visita dá para pular de qualquer passo; revendo, o ✕ já faz isso.
+                Pular conclui com som: o clique já serve de gesto para liberar o áudio no navegador */}
+            {!ultimo && !podeFechar && (
               <button
                 type="button"
                 onClick={() => onConcluir(true)}
@@ -433,7 +433,10 @@ function Sons({
       )}
       <ul className="space-y-3">
         <Item icone="🤐">Qualquer outra combinação não toca nada. Os alertas olham só o Brasil, não cada estado.</Item>
-        <Item icone="💬">Junto com o som, aparece por alguns segundos um aviso no canto da tela com a variação de cada um.</Item>
+        <Item icone="💬">
+          Junto com o som, aparece no centro da tela, por 15 segundos, um aviso com a variação de cada um. Depois de um alerta, o
+          próximo só vem 5 minutos depois.
+        </Item>
         <Item icone="📱">No iPhone, desligue o modo silencioso (a chave na lateral) e aumente o volume.</Item>
       </ul>
     </>
