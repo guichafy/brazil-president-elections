@@ -1,5 +1,43 @@
+.dialogo {
+  --apresentacao-superficie: #052f18;
+  --apresentacao-elevada: #073b22fa;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  isolation: isolate;
+  overflow-y: auto;
+  background: #07401d;
+  color: white;
+  outline: none;
+  transition: background 900ms ease;
+}
+
+.festa { display: none; position: absolute; inset: 0; pointer-events: none; }
+.dialogo:has([data-clima="festa"]) .festa { display: block; }
+.dialogo:not(:has([data-clima="festa"])) .lula { display: none; }
+.dialogo:has([data-clima="suspense"]) {
+  --apresentacao-superficie: #101010;
+  --apresentacao-elevada: #151515fa;
+  background: #080808;
+}
+.dialogo:has([data-clima="suspense"]) .apresentacao { filter: grayscale(1); }
+.dialogo:has([data-clima="suspense"]) .festa,
+.dialogo:has([data-clima="suspense"]) .lula { display: none; }
+.dialogo:has([data-clima="suspense"]) .cabecalho > div { grid-column: 2; }
+.dialogo:has([data-clima="suspense"]) .cabecalho::before {
+  content: "";
+  width: 12px;
+  height: 32px;
+  justify-self: end;
+  background: linear-gradient(110deg, #4a4a4a, #111 65%);
+  border: 1px solid #666;
+  transform: rotate(-28deg);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+}
+
 .apresentacao {
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -81,13 +119,14 @@
 .detalhes ol { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; margin-top: 8px; }
 .detalhes li[aria-current="step"] { color: #ffdf00; }
 .detalhes p { margin-top: 8px; text-align: center; }
-.fonte { flex-shrink: 0; text-align: center; color: #ffffff70; font-size: 9px; line-height: 11px; }
 
 @media (max-width: 1099px) {
   .apresentacao { min-height: 780px; }
 }
 
 @media (max-width: 699px) {
+  .dialogo:has([data-clima="suspense"]) .cabecalho > div { grid-column: 1; }
+  .dialogo:has([data-clima="suspense"]) .cabecalho::before { display: none; }
   .cabecalho { grid-template-columns: minmax(0, 1fr) 112px; gap: 8px; padding-inline: 0 32px; }
   .lula { display: none; }
   .cabecalho h1 { font-size: 15px; line-height: 18px; }
@@ -105,3 +144,5 @@
   .controles button { padding: 5px 7px; font-size: 11px; }
   .controles > span { font-size: 10px; }
 }
+
+@media (prefers-reduced-motion: reduce) { .dialogo { transition: none; } }

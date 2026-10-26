@@ -5,6 +5,18 @@ import { aplicarReplay } from "../src/lib/replay.ts";
 import { DURACAO_COMEMORACAO_MS, criarRoteiro, indiceNoTempo, insightsEstaduais, posicaoTimelapse, segmentoPrincipal } from "../src/lib/timelapse.ts";
 import { lulaVenceu } from "../src/lib/humor.ts";
 
+test("presentation follows national votes and does not invent a leader for ties or missing candidates", async () => {
+  const { liderApresentacao } = await import("../src/lib/timelapse.ts");
+  assert.equal(typeof liderApresentacao, "function");
+  const resultado = (lula, flavio) => ({ candidatos: [{numero:"22",votos:flavio,pct:50}, {numero:"13",votos:lula,pct:50}] });
+  assert.equal(liderApresentacao(resultado(101, 100)), "13");
+  assert.equal(liderApresentacao(resultado(100, 101)), "22");
+  assert.equal(liderApresentacao(resultado(100, 100)), null);
+  assert.equal(liderApresentacao(resultado(0, 0)), null);
+  assert.equal(liderApresentacao({candidatos:[{numero:"22",votos:10}]}), null);
+  assert.equal(liderApresentacao(null), null);
+});
+
 test("qualification for the second round never triggers a presidential victory", async () => {
   const final = await carregarApuracao();
   const primeiroTurno = structuredClone(final.nacional);

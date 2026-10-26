@@ -35,5 +35,5 @@ for (const id of ["6257", "6258"]) {
   const a = JSON.parse(await readFile(`data/resultados-${id}.json`, "utf8"));
   for (const c of candidates(a.abrangencias.br)) validatePhoto(await readFile(`out/fotos/${id}/${c.sqcand}.jpeg`));
 }
-for (const file of ["sons/lula.mp3", "sons/lula-bota-pra-virar.mp3", "sons/bolsonaro.mp3", "sons/lula-vitoria.mp3", "imagens/lula.png", "lottie/confete.json", "lottie/fogos.json", "lottie/urna.json", "lottie/bandeira.json"]) await access(join("out", file));
+for (const file of ["sons/lula.mp3", "sons/lula-bota-pra-virar.mp3", "sons/bolsonaro.mp3", "sons/lula-vitoria.mp3", "sons/flavio-apreensao.mp3", "imagens/lula.png", "lottie/confete.json", "lottie/fogos.json", "lottie/urna.json", "lottie/bandeira.json"]) await access(join("out", file));
 console.log(`Export validado: HTML com resultado e slider, replay, 29 timelines, 14 fotos e assets locais; basePath=${base || "/"}.`);

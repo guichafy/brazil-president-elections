@@ -22,7 +22,7 @@
   max-width: 100%;
   border: 1px solid #ffffff40;
   border-radius: 8px;
-  background: #052f18;
+  background: var(--apresentacao-superficie, #052f18);
   padding: 5px 10px;
   color: white;
   font-size: 12px;
@@ -43,7 +43,7 @@
   position: relative;
   border: 1px solid #ffffff26;
   border-radius: 16px;
-  background: #052f18;
+  background: var(--apresentacao-superficie, #052f18);
   overflow: hidden;
 }
 
@@ -63,7 +63,7 @@
   overflow: hidden;
   border: 1px solid #ffdf00b3;
   border-radius: 10px;
-  background: #073b22fa;
+  background: var(--apresentacao-elevada, #073b22fa);
   padding: 12px;
   box-shadow: 0 4px 18px #00180c80;
   pointer-events: none;
@@ -168,6 +168,7 @@
 .mapa {
   display: block;
   position: absolute;
+  z-index: 2;
   left: 0;
   top: 0;
   width: 100%;
@@ -202,7 +203,7 @@
   margin: 0 12px 12px;
   border: 1px solid #ffdf0066;
   border-radius: 12px;
-  background: #073b22;
+  background: var(--apresentacao-elevada, #073b22);
   padding: 16px;
   color: white;
 }

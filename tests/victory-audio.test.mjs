@@ -83,3 +83,49 @@ test("audio pause, resume and seeking retain the correct buffer position",async(
     context.currentTime=20;assert.equal(a.pausarSom(),33);a.pararSom();assert.equal(a.retomarSom(),false);
   }finally{globalThis.window=previous.window;globalThis.AudioContext=previous.AudioContext;globalThis.fetch=previous.fetch;}
 });
+
+test("presentation changes music only with the leader, loops through long pauses and cancels obsolete loads", async () => {
+  const original={window:globalThis.window,AudioContext:globalThis.AudioContext,fetch:globalThis.fetch};
+  const requests=[],sources=[];
+  let release,failSuspense=false,clockTime=0;
+  globalThis.window={};
+  globalThis.AudioContext=class {
+    state="running";destination={};get currentTime(){return clockTime;}
+    async decodeAudioData(bytes){return{duration:new Uint8Array(bytes)[0]};}
+    createBufferSource(){const source={loop:false,connect(){},start(){this.started=true;},stop(){this.stopped=true;this.onended?.();}};sources.push(source);return source;}
+  };
+  globalThis.fetch=async url=>{
+    requests.push(String(url));
+    if(String(url).endsWith("flavio-apreensao.mp3")){
+      if(failSuspense)return{ok:false,status:503};
+      return new Promise(resolve=>{release=()=>resolve({ok:true,arrayBuffer:async()=>new Uint8Array([103]).buffer});});
+    }
+    return{ok:true,arrayBuffer:async()=>new Uint8Array([90]).buffer};
+  };
+  try{
+    const audio=await import("../src/lib/sons.ts?presentation-test");
+    assert.equal(typeof audio.somApresentacao,"function");
+    assert.equal(typeof audio.prepararSonsApresentacao,"function");
+    await audio.desbloquearAudio();
+    assert.equal(await audio.somApresentacao("13"),90);
+    const pending=audio.somApresentacao("22");
+    assert.equal(await audio.somApresentacao("13"),90);
+    release();assert.equal(await pending,null,"A faixa atrasada não pode substituir a liderança atual");
+    assert.equal(sources.length,1);assert.equal(sources[0].buffer.duration,90);
+    assert.equal(await audio.somApresentacao("22"),103);
+    assert(sources[0].stopped);assert.equal(sources.at(-1).buffer.duration,103);assert(sources.at(-1).loop);
+    clockTime=120;assert.equal(audio.posicaoSom(),17,"A trilha continua em loop durante pausas longas");
+    await audio.somApresentacao("22");await audio.somApresentacao(null);
+    assert.equal(sources.length,2,"Atualizações e empate não reiniciam a música");
+    assert.equal(await audio.prepararSonsApresentacao(),true);
+    assert.equal(requests.filter(url=>url.endsWith("flavio-apreensao.mp3")).length,1);
+    assert.equal(await audio.somApresentacao("22",true),null,"Ir ao final encerra a música mesmo com a timeline pausada");
+    assert(sources.at(-1).stopped);
+    audio.pararSom();assert(sources.at(-1).stopped);
+    await audio.somApresentacao("13");audio.pararSom();assert(sources.at(-1).stopped);
+    failSuspense=true;
+    const retry=await import("../src/lib/sons.ts?presentation-retry");await retry.desbloquearAudio();
+    assert.equal(await retry.prepararSonsApresentacao(),false);
+    failSuspense=false;const preparing=retry.prepararSonsApresentacao();await new Promise(r=>setImmediate(r));release();assert.equal(await preparing,true);
+  }finally{Object.assign(globalThis,original);}
+});

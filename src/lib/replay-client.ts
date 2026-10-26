@@ -1,6 +1,6 @@
 import { assetPath } from "./assets";
 import type { ReplayResponse } from "./types";
-import { desbloquearAudio, somVitoria } from "./sons";
+import { desbloquearAudio, prepararSonsApresentacao, somApresentacao } from "./sons";
 
 let carregando: Promise<ReplayResponse> | undefined;
 
@@ -20,9 +20,17 @@ export function carregarReplayCliente(): Promise<ReplayResponse> {
 export async function iniciarVitoriaComAudio(vigente: () => boolean): Promise<boolean> {
   if (!(await desbloquearAudio())) throw new Error("O navegador não liberou o áudio. Toque em iniciar novamente.");
   if (!vigente()) return false;
-  await carregarReplayCliente();
+  const replay = await carregarReplayCliente();
   if (!vigente()) return false;
-  const duracao = await somVitoria();
+  const preparadas = await prepararSonsApresentacao();
+  if (!vigente()) return false;
+  if (!preparadas) throw new Error("Não foi possível carregar a música. Toque em iniciar para tentar novamente.");
+  const candidatos = replay.snapshots[replay.pontos[0].indices.br].cands;
+  const lula = candidatos.find(c => c.n === "13")?.vap;
+  const flavio = candidatos.find(c => c.n === "22")?.vap;
+  // Sem liderança ainda, o filme pode começar com as trilhas prontas, aguardando votos válidos.
+  if (lula === undefined || flavio === undefined || lula === flavio) return true;
+  const duracao = await somApresentacao(flavio > lula ? "22" : "13");
   if (!vigente()) return false;
   if (!duracao) throw new Error("Não foi possível carregar a música. Toque em iniciar para tentar novamente.");
   return true;

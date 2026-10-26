@@ -1,0 +1,15 @@
+.cenario { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+.vinheta { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 46%, transparent 30%, #0007 78%, #000c 100%); animation: respiracao 6s ease-in-out infinite alternate; }
+.nevoa, .nevoaDistante { position: absolute; inset: -25%; opacity: .42; background: radial-gradient(ellipse at 5% 70%, #d6d6d624, transparent 37%), radial-gradient(ellipse at 95% 25%, #e1e1e117, transparent 32%); filter: blur(24px); animation: nevoa 14s ease-in-out infinite alternate; }
+.nevoaDistante { opacity: .25; transform: scaleX(-1); animation: nevoa-distante 19s ease-in-out infinite alternate; }
+.mao { position: absolute; bottom: -110px; width: clamp(100px, 17vw, 260px); height: min(75vh, 680px); fill: #000; stroke: #bcbcbc45; stroke-width: 1.2; opacity: .66; filter: blur(.5px); transform-origin: bottom center; }
+.esquerda { left: -24px; animation: sombra-esquerda 10s ease-in-out infinite alternate; }
+.direita { right: -24px; animation: sombra-direita 12s ease-in-out infinite alternate; }
+.dobras { fill: none; stroke: #bcbcbc38; stroke-width: 1.4; }
+@keyframes respiracao { from { opacity: .45; } to { opacity: .95; } }
+@keyframes nevoa { from { transform: translate(-3%, 4%) scale(1); } to { transform: translate(4%, -3%) scale(1.08); } }
+@keyframes nevoa-distante { from { transform: scaleX(-1) translate(-4%, -3%); } to { transform: scaleX(-1) translate(4%, 4%); } }
+@keyframes sombra-esquerda { from { transform: translate(-8px, 38px) rotate(-8deg); opacity: .35; } to { transform: translate(12px, -12px) rotate(4deg); opacity: .7; } }
+@keyframes sombra-direita { from { transform: scaleX(-1) translate(-8px, 22px) rotate(-7deg); opacity: .48; } to { transform: scaleX(-1) translate(8px, -20px) rotate(5deg); opacity: .68; } }
+@media (max-width: 699px) { .mao { width: 110px; height: 52vh; bottom: -100px; opacity: .4; } .esquerda { left: -38px; } .direita { right: -38px; } }
+@media (prefers-reduced-motion: reduce) { .cenario * { animation: none; } .mao { display: none; } .nevoa, .nevoaDistante { display: none; } .vinheta { opacity: .5; } }

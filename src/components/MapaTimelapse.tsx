@@ -10,6 +10,7 @@ import { UFS, scopeName, type Scope, type UF } from "@/lib/ufs";
 import type { ApuracaoResponse } from "@/lib/types";
 import styles from "./MapaTimelapse.module.css";
 import { useChamadasFixas } from "./useChamadasFixas";
+import AnimacaoSuspense from "./AnimacaoSuspense";
 
 type UfFeature = Feature<Geometry, { uf:UF }>;
 const geo = brasil as unknown as FeatureCollection<Geometry, { uf:UF }>;
@@ -67,13 +68,15 @@ function useFatiasAnimadas(ufs: ApuracaoResponse["ufs"]) {
   return { fatias, reacoes, mudancas, fonte };
 }
 
-export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false, revisaoNavegacao=0 }: {
+export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false, revisaoNavegacao=0, suspense=false }: {
   apuracao:ApuracaoResponse;
   scope:Scope;
   onSelect:(s:Scope)=>void;
   pausado?:boolean;
   revisaoNavegacao?:number;
+  suspense?:boolean;
 }) {
+  const cores:Record<string,string> = suspense ? {"13":"#d0d0d0","22":"#585858"} : COR;
   const id = useId().replace(/:/g,"");
   const area = useRef<HTMLDivElement>(null);
   const desenho = useRef<SVGSVGElement>(null);
@@ -124,6 +127,7 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
 
       <div className={styles.quadro}>
         <div ref={area} role="region" aria-label="Mapa do Brasil com votos por estado" aria-describedby={`${id}-instrucao`} className={styles.area}>
+          {suspense && <AnimacaoSuspense />}
           <svg ref={desenho} viewBox={`${MAPA_VIEWBOX.x} ${MAPA_VIEWBOX.y} ${MAPA_VIEWBOX.largura} ${MAPA_VIEWBOX.altura}`} preserveAspectRatio="xMidYMid meet" className={styles.mapa} role="group" aria-label="Mapa animado da votação proporcional por estado">
             <defs>
               {shapes.map(s=><clipPath key={s.uf} id={`${id}-uf-${s.uf}`}><path d={s.d}/></clipPath>)}
@@ -135,7 +139,7 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
               return <g key={s.uf} role="button" tabIndex={0} aria-label={descricao} aria-pressed={ativo} aria-controls={ativo ? `${id}-detalhe` : undefined} className={styles.estado} data-selecionado={ativo} data-atualizado={atualizados.has(s.uf)} onClick={()=>selecionar(s.uf)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selecionar(s.uf);}}}>
                 <g clipPath={`url(#${id}-uf-${s.uf})`}>
                   <path d={s.d} fill="#7f9489"/>
-                  {fatias.map(f=><path key={f.numero} d={setorPizza(s.x,s.y,s.raio,f.inicio,f.fracao)} fill={COR[f.numero]}/>)}
+                  {fatias.map(f=><path key={f.numero} d={setorPizza(s.x,s.y,s.raio,f.inicio,f.fracao)} fill={cores[f.numero]}/>)}
                 </g>
                 <path d={s.d} fill="none" className={styles.contorno} vectorEffect="non-scaling-stroke"/>
                 {atualizados.has(s.uf) && <path key={`reacao-${reacoes[s.uf]?.versao}`} d={s.d} fill="none" className={styles.reacaoEstado} vectorEffect="non-scaling-stroke" aria-hidden="true" />}
@@ -148,7 +152,7 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
               return <g key={`pizza-${s.uf}`} transform={`translate(${s.x},${s.y})`} pointerEvents="none" aria-hidden="true">
                 <circle r={s.raio+1} fill={ativo ? "#FFDF00" : "#d4e8dc"}/>
                 {atualizados.has(s.uf) && <circle key={`pulso-${reacoes[s.uf]?.versao}`} r={s.raio+5} fill="none" className={styles.pulsoEstado} />}
-                {fatias.map(f=><path key={f.numero} d={setorPizza(0,0,s.raio,f.inicio,f.fracao)} fill={COR[f.numero]}/>)}
+                {fatias.map(f=><path key={f.numero} d={setorPizza(0,0,s.raio,f.inicio,f.fracao)} fill={cores[f.numero]}/>)}
                 {s.rotulo && <text x={s.rotulo.x-s.x} y={s.rotulo.y-s.y+4} textAnchor="middle" fill={ativo ? "#FFDF00" : "white"} stroke="#052f18" strokeWidth={3} paintOrder="stroke" fontSize={12} fontWeight={800}>{s.uf.toUpperCase()}</text>}
               </g>;
             })}
@@ -187,7 +191,7 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
               const c=detalhe.candidatos.find(c=>c.numero===n), foto=c?.foto??candidatos.find(c=>c.numero===n)?.foto;
               return <div key={n} className={styles.candidato}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {foto && <img src={foto} alt="" className="size-9 rounded-full object-cover" style={{border:`2px solid ${COR[n]}`}}/>}
+                {foto && <img src={foto} alt="" className="size-9 rounded-full object-cover" style={{border:`2px solid ${cores[n]}`}}/>}
                 <div className="min-w-0 flex-1"><p className="text-xs font-semibold">{n==="13" ? "Lula" : "Flávio Bolsonaro"}</p><p className="mt-1 text-xs text-white/65 tabular">{fmtInt(c?.votos??0)} votos</p></div>
                 <strong className="text-lg font-bold tabular" style={{color:n==="13" ? "#ffb6bd" : "#c5c9ff"}}>{fmtPct(c?.pct??0)}</strong>
               </div>;
@@ -198,7 +202,7 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
       </div>
       <div className={styles.rodape}>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/80" aria-label="Legenda dos candidatos">
-          {["13","22"].map(n=><span key={n} className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{background:COR[n]}}/>{n==="13" ? "Lula" : "Flávio Bolsonaro"}</span>)}
+          {["13","22"].map(n=><span key={n} className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{background:cores[n]}}/>{n==="13" ? "Lula" : "Flávio Bolsonaro"}</span>)}
           <span className="text-white/55">Proporção dos votos válidos</span>
         </div>
         {scope!=="zz" && apuracao.exterior && <button type="button" onClick={()=>onSelect("zz")} className="text-xs text-white/75 underline underline-offset-4 hover:text-[#FFDF00] focus-visible:outline-2 focus-visible:outline-[#FFDF00]">Ver votos do exterior</button>}

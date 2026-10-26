@@ -67,12 +67,13 @@ function nota(
 const AUDIOS_LULA = ["/sons/lula.mp3", "/sons/lula-bota-pra-virar.mp3"];
 const AUDIO_BOLSONARO = "/sons/bolsonaro.mp3"; // Flávio Bolsonaro sobe
 const AUDIO_VITORIA = "/sons/lula-vitoria.mp3"; // vídeo r4L7BYH1JHA, primeiros 90s; origem em data/audio-vitoria.json
+const AUDIO_SUSPENSE = "/sons/flavio-apreensao.mp3"; // vídeo 7y4kJtkioFk; origem em data/audio-suspense.json
 
 const sortear = <T>(lista: T[]) => lista[Math.floor(Math.random() * lista.length)];
 
 const buffers = new Map<string, Promise<AudioBuffer | null>>();
 let tocando: AudioBufferSourceNode | null = null;
-let faixa:{buffer:AudioBuffer;offset:number;inicio:number;pausado:boolean}|null=null;
+let faixa:{buffer:AudioBuffer;url:string;loop:boolean;offset:number;inicio:number;pausado:boolean}|null=null;
 
 function carregar(c: AudioContext, url: string): Promise<AudioBuffer | null> {
   let b = buffers.get(url);
@@ -96,7 +97,8 @@ function interromper() {
 
 export function posicaoSom():number|null {
   if(!faixa)return null;
-  return Math.min(faixa.buffer.duration,faixa.offset+(faixa.pausado ? 0 : Math.max(0,(ctx?.currentTime??0)-faixa.inicio)));
+  const posicao=faixa.offset+(faixa.pausado ? 0 : Math.max(0,(ctx?.currentTime??0)-faixa.inicio));
+  return faixa.loop ? posicao%faixa.buffer.duration : Math.min(faixa.buffer.duration,posicao);
 }
 
 export function pausarSom():number|null {
@@ -110,7 +112,7 @@ export function retomarSom():boolean {
   if(!ctx||ctx.state!=="running"||!faixa||faixa.offset>=faixa.buffer.duration)return false;
   interromper();
   const atual=faixa,src=ctx.createBufferSource();
-  src.buffer=atual.buffer;src.connect(ctx.destination);
+  src.buffer=atual.buffer;src.loop=atual.loop;src.connect(ctx.destination);
   atual.inicio=ctx.currentTime??0;atual.pausado=false;tocando=src;
   src.onended=()=>{if(tocando===src){tocando=null;atual.offset=atual.buffer.duration;atual.pausado=true;}};
   src.start(0,atual.offset);return true;
@@ -127,7 +129,7 @@ export function posicionarSom(segundos:number,continuar=true):boolean {
  * sem arquivo, usa o som sintetizado.
  * Resolve, quando o áudio começa, com a duração dele em segundos; `null` se nada tocou ou se tocou o sintetizado.
  */
-async function tocarArquivo(url: string, reserva: () => void): Promise<number | null> {
+async function tocarArquivo(url: string, reserva: () => void, loop=false): Promise<number | null> {
   if (!ctx || ctx.state !== "running") return null;
   const vez = ++pedido;
   const buf = await carregar(ctx, url);
@@ -137,7 +139,7 @@ async function tocarArquivo(url: string, reserva: () => void): Promise<number | 
     reserva();
     return null;
   }
-  faixa={buffer:buf,offset:0,inicio:ctx.currentTime??0,pausado:true};
+  faixa={buffer:buf,url,loop,offset:0,inicio:ctx.currentTime??0,pausado:true};
   return retomarSom() ? buf.duration : null;
 }
 
@@ -152,6 +154,28 @@ export const somFeliz = () => tocarArquivo(sortear(AUDIOS_LULA), arpejoFeliz);
 export const somTriste = () => tocarArquivo(AUDIO_BOLSONARO, tromboneTriste);
 // A apresentação espera a música real; uma falha permite tentar novamente, sem iniciar um filme mudo.
 export const somVitoria = () => tocarArquivo(AUDIO_VITORIA, () => {});
+
+/** Prepara a virada antes do Play, sem tocar uma faixa antecipadamente. */
+export async function prepararSonsApresentacao(): Promise<boolean> {
+  if (!ctx || ctx.state !== "running") return false;
+  const faixas = await Promise.all([carregar(ctx, AUDIO_VITORIA), carregar(ctx, AUDIO_SUSPENSE)]);
+  return faixas.every(Boolean);
+}
+
+/** Não reinicia a mesma liderança; empate conserva a música atual. O fechamento cancela cargas pendentes. */
+export function somApresentacao(lider: "13" | "22" | null, encerrada=false): Promise<number | null> {
+  if (encerrada) {
+    pararSom();
+    return Promise.resolve(null);
+  }
+  if (lider === null) return Promise.resolve(null);
+  const url = lider === "22" ? AUDIO_SUSPENSE : AUDIO_VITORIA;
+  if (faixa?.url === url && faixa.loop && tocando) {
+    pedido++; // voltar ao líder que já toca também invalida uma troca pendente
+    return Promise.resolve(faixa.buffer.duration);
+  }
+  return tocarArquivo(url, () => {}, true);
+}
 
 /** Arpejo maior ascendente com um brilho no final. Também confirma que o som foi ligado. */
 export function arpejoFeliz() {

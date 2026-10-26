@@ -231,12 +231,14 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
       ref={dialog}
       tabIndex={-1}
       aria-label={venceuSegundoTurno ? "Lula venceu a eleição" : "Demonstração do timelapse da apuração"}
-      className="fixed inset-0 z-[60] overflow-y-auto bg-[#07401d] text-white outline-none"
+      className={styles.dialogo}
     >
       {!vitoria.aguardandoInicio && <>
-        <Arquivo src="/lottie/confete.json" cobrir className="pointer-events-none absolute inset-0" />
-        <Arquivo src="/lottie/fogos.json" className="pointer-events-none absolute top-[3%] left-[2%] size-40 sm:size-64" />
-        <Arquivo src="/lottie/fogos.json" className="pointer-events-none absolute top-[12%] right-[2%] size-32 sm:size-56" />
+        <div className={styles.festa} aria-hidden="true">
+          <Arquivo src="/lottie/confete.json" cobrir className="pointer-events-none absolute inset-0" />
+          <Arquivo src="/lottie/fogos.json" className="pointer-events-none absolute top-[3%] left-[2%] size-40 sm:size-64" />
+          <Arquivo src="/lottie/fogos.json" className="pointer-events-none absolute top-[12%] right-[2%] size-32 sm:size-56" />
+        </div>
       </>}
 
       <button
@@ -254,8 +256,8 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
       {vitoria.aguardandoInicio ? (
         <div className="relative mx-auto flex min-h-dvh max-w-2xl flex-col items-center justify-center px-6 py-20 text-center">
           <p className="text-sm text-white/65">Eleições 2026 · {resultadoFinal.nacional?.turno}º turno</p>
-          <h1 className="mt-4 text-4xl font-black tracking-tight text-[#FFDF00] sm:text-6xl">Cada estado.<br />Cada virada.</h1>
-          <p className="mt-5 max-w-md text-base leading-relaxed text-white/80 sm:text-lg">Reviva a apuração em 90 segundos. Acompanhe a disputa em cada estado, ao som da música da vitória.</p>
+          <h1 className="mt-4 text-4xl font-black tracking-tight text-balance text-[#FFDF00] sm:text-5xl">Reviva a apuração em 90 segundos</h1>
+          <p className="mt-5 max-w-md text-base leading-relaxed text-white/80">Acompanhe a disputa em cada estado, <span className="whitespace-nowrap">ao som da música da vitória.</span></p>
           <button type="button" onClick={onOuvir} disabled={vitoria.preparando} aria-busy={vitoria.preparando} className="group mt-9 flex flex-col items-center gap-4 rounded-2xl p-4 font-bold text-[#FFDF00] disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
             <span className="grid size-24 place-items-center rounded-full bg-[#FFDF00] text-[#07401d] transition-transform group-hover:scale-105 motion-reduce:transition-none sm:size-28">
               <svg viewBox="0 0 32 32" className="ml-1 size-10" aria-hidden="true"><path d="M10 5 L27 16 L10 27 Z" fill="currentColor" /></svg>
@@ -271,7 +273,7 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
           <AnimacaoLula cor={corLula} className={styles.lula} />
           <div>
             {vitoria.teste && <p className="text-xs text-white/65">Reprodução da comemoração</p>}
-            <h1>{venceuSegundoTurno ? "Da apuração à vitória de Lula" : "Demonstração do timelapse da apuração"}</h1>
+            <h1>Cada estado. Cada virada.</h1>
             <p>Resultado final: {vitoria.pct.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% · {vitoria.votos.toLocaleString("pt-BR")} votos{venceuSegundoTurno && vitoria.eleito ? " · eleito pelo TSE" : ""}</p>
           </div>
             <button type="button" onClick={onOuvir} className={styles.reiniciar}>
@@ -279,7 +281,6 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
             </button>
         </header>
         <TimelapseVitoria resultadoFinal={resultadoFinal} vitoria={vitoria} onTentar={onOuvir} onAlternar={onAlternar} onPosicionar={onPosicionar}/>
-        <p className={styles.fonte}>Trilha: <a className="underline" href="https://www.youtube.com/watch?v=r4L7BYH1JHA" target="_blank" rel="noreferrer">Olê, olê, olê, olá · Exército da Esquerda</a> · trecho de 90 segundos.</p>
       </div>}
 
     </div>

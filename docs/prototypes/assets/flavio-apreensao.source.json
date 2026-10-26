@@ -1,0 +1,10 @@
+{
+  "video": "https://www.youtube.com/watch?v=7y4kJtkioFk",
+  "titulo": "música de (suspense ) sem direito autorais para usar em seus vídeos",
+  "canal": "canções tube",
+  "duracaoSegundos": 103,
+  "baixadoEm": "2026-10-26",
+  "sha256": "f4fbdee07aac6ae028ad552d8466e93fccf027898b6c4f6eac6e6136f434f161",
+  "ferramenta": "~/Workspaces/Bin/yt-dlp",
+  "uso": "Protótipo de design; integração pendente de validação"
+}

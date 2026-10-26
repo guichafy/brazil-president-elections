@@ -1,7 +1,15 @@
-import type { ApuracaoResponse, ReplayResponse } from "./types";
+import type { ApuracaoResponse, ReplayResponse, ResultadoAbrangencia } from "./types";
 import { ALL_SCOPES, scopeName, type Scope } from "./ufs";
 
 export const DURACAO_COMEMORACAO_MS = 90_000;
+
+/** A liderança depende dos votos, inclusive quando os percentuais arredondam para 50%. */
+export function liderApresentacao(nacional?: Pick<ResultadoAbrangencia, "candidatos"> | null): "13" | "22" | null {
+  const lula = nacional?.candidatos.find(c => c.numero === "13");
+  const flavio = nacional?.candidatos.find(c => c.numero === "22");
+  if (!lula || !flavio || lula.votos === flavio.votos) return null;
+  return lula.votos > flavio.votos ? "13" : "22";
+}
 
 export function posicaoTimelapse(relogio:{posicaoMs:number;iniciadoEm:number|null;pausado:boolean},agora=Date.now()) {
   return Math.max(0,Math.min(DURACAO_COMEMORACAO_MS,relogio.posicaoMs+(!relogio.pausado&&relogio.iniciadoEm!==null ? Math.max(0,agora-relogio.iniciadoEm) : 0)));

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { carregarReplayCliente } from "@/lib/replay-client";
 import { aplicarReplay } from "@/lib/replay";
-import { criarRoteiro, DURACAO_COMEMORACAO_MS, indiceNoTempo, posicaoTimelapse } from "@/lib/timelapse";
+import { criarRoteiro, DURACAO_COMEMORACAO_MS, indiceNoTempo, liderApresentacao, posicaoTimelapse } from "@/lib/timelapse";
+import { somApresentacao } from "@/lib/sons";
 import { fmtInt, fmtPct } from "@/lib/format";
 import { scopeName, type Scope } from "@/lib/ufs";
 import type { ApuracaoResponse, Candidato, ReplayResponse } from "@/lib/types";
@@ -43,6 +44,13 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
   const atual = useMemo(() => dados ? aplicarReplay(resultadoFinal, dados, indice) : null, [resultadoFinal, dados, indice]);
   const marco = roteiro?.marcos.filter(m => m.indice <= indice).at(-1);
   const nacional = atual?.nacional;
+  // Empates conservam a última liderança registrada no histórico, inclusive ao navegar para trás.
+  const lider = liderApresentacao(nacional) ?? (marco?.lider === "22" ? "22" : marco?.lider === "13" ? "13" : null);
+  const clima = lider === "22" ? "suspense" : lider === "13" ? "festa" : "neutro";
+  const encerrada = decorrido >= DURACAO_COMEMORACAO_MS;
+  useEffect(() => {
+    if (!vitoria.semSom) void somApresentacao(lider, encerrada);
+  }, [lider, encerrada, vitoria.semSom]);
   const restante = Math.ceil((DURACAO_COMEMORACAO_MS - decorrido) / 1000);
   const carregando=iniciadoEm===null&&!pausado;
 
@@ -52,7 +60,7 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
     </div>
   );
   return (
-    <section aria-label="Timelapse da apuração" data-decorrido-ms={Math.floor(decorrido)} className={styles.filme}>
+    <section aria-label="Timelapse da apuração" data-decorrido-ms={Math.floor(decorrido)} data-clima={clima} className={styles.filme}>
       <div className={styles.resumo}>
         <CandidatoCompacto candidato={nacional.candidatos.find(c=>c.numero==="13")} />
         <div className={styles.marco}>
@@ -72,7 +80,7 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
       </div>
       <p className={styles.nota}>A música continua durante a pausa.</p>
 
-      <MapaTimelapse apuracao={atual!} scope={scope} onSelect={setScope} pausado={pausado} revisaoNavegacao={vitoria.revisaoNavegacao??0} />
+      <MapaTimelapse apuracao={atual!} scope={scope} onSelect={setScope} pausado={pausado} suspense={clima === "suspense"} revisaoNavegacao={vitoria.revisaoNavegacao??0} />
 
       <details className={styles.detalhes}>
         <summary>Marcos da apuração e fonte dos dados</summary>
