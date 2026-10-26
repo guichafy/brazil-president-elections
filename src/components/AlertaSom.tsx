@@ -128,7 +128,7 @@ export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangen
     if(!vitoria)return;
     const posicaoMs=Math.max(0,Math.min(DURACAO_COMEMORACAO_MS,ms));
     const pausado=vitoria.pausado||posicaoMs===DURACAO_COMEMORACAO_MS;
-    setVitoria(v=>v&&({...v,posicaoMs,pausado,iniciadoEm:pausado ? null : Date.now()}));
+    setVitoria(v=>v&&({...v,posicaoMs,pausado,iniciadoEm:pausado ? null : Date.now(),revisaoNavegacao:(v.revisaoNavegacao??0)+1}));
   },[vitoria]);
 
   /** Mostra a comemoração com os números atuais, sem contar como a de verdade. */

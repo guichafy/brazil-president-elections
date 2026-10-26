@@ -1,0 +1,107 @@
+.apresentacao {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 1800px;
+  height: 100dvh;
+  min-height: 500px;
+  margin: 0 auto;
+  padding: 6px 16px 10px;
+}
+
+.cabecalho {
+  display: grid;
+  grid-template-columns: 144px minmax(0, 1fr) 144px;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 1100px);
+  margin: 0 auto;
+  padding-inline: 28px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.lula { width: 36px; justify-self: end; }
+.cabecalho h1 { color: #ffdf00; font-size: 21px; line-height: 25px; font-weight: 900; }
+.cabecalho p { margin-top: 2px; font-size: 10px; line-height: 13px; color: #ffffffb3; }
+.reiniciar { border-radius: 999px; padding: 6px 10px; background: #ffdf00; color: #07401d; font-size: 11px; font-weight: 800; cursor: pointer; }
+.reiniciar:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+
+.filme {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.resumo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: min(100%, 1100px);
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+.candidato { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+.candidato img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+.candidato > div { min-width: 0; }
+.candidato p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 14px; font-weight: 600; }
+.candidato strong { display: block; font-size: 26px; line-height: 29px; font-weight: 900; }
+.candidato span { display: block; font-size: 11px; line-height: 14px; color: #ffffffb3; }
+.candidato[data-direita="true"] { flex-direction: row-reverse; text-align: right; }
+.marco { text-align: center; min-width: 0; }
+.marco h2 { font-size: 17px; line-height: 21px; font-weight: 800; }
+.marco p { margin-top: 2px; font-size: 11px; line-height: 14px; color: #ffffffb3; }
+.marco output { font-size: 11px; line-height: 14px; color: #ffdf00; }
+
+.controles {
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  width: min(100%, 1100px);
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+.controles button { border: 1px solid #ffffff50; border-radius: 999px; padding: 5px 10px; font-size: 12px; line-height: 18px; cursor: pointer; }
+.controles button:first-child { border-color: #ffdf00; background: #ffdf00; color: #07401d; font-weight: 800; }
+.controles button:disabled { opacity: 0.5; }
+.controles button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.controles input { min-width: 0; width: 100%; accent-color: #ffdf00; }
+.controles > span { font-size: 11px; }
+.nota { text-align: center; color: #ffffff99; font-size: 10px; line-height: 12px; flex-shrink: 0; }
+.detalhes { flex-shrink: 0; font-size: 10px; line-height: 13px; color: #ffffff99; }
+.detalhes summary { width: fit-content; margin: 0 auto; cursor: pointer; }
+.detalhes ol { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; margin-top: 8px; }
+.detalhes li[aria-current="step"] { color: #ffdf00; }
+.detalhes p { margin-top: 8px; text-align: center; }
+.fonte { flex-shrink: 0; text-align: center; color: #ffffff70; font-size: 9px; line-height: 11px; }
+
+@media (max-width: 1099px) {
+  .apresentacao { min-height: 780px; }
+}
+
+@media (max-width: 699px) {
+  .cabecalho { grid-template-columns: minmax(0, 1fr) 112px; gap: 8px; padding-inline: 0 32px; }
+  .lula { display: none; }
+  .cabecalho h1 { font-size: 15px; line-height: 18px; }
+  .cabecalho p { font-size: 9px; line-height: 11px; }
+  .reiniciar { font-size: 10px; padding: 6px; }
+  .resumo { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 12px; }
+  .marco { grid-column: 1 / -1; grid-row: 2; }
+  .marco h2 { font-size: 14px; line-height: 17px; }
+  .marco p, .marco output { display: inline; margin-right: 5px; font-size: 10px; }
+  .candidato { gap: 5px; }
+  .candidato img { width: 24px; height: 24px; }
+  .candidato p { font-size: 10px; }
+  .candidato strong { font-size: 24px; line-height: 26px; }
+  .candidato span { font-size: 10px; }
+  .controles button { padding: 5px 7px; font-size: 11px; }
+  .controles > span { font-size: 10px; }
+}

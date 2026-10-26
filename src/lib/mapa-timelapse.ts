@@ -80,6 +80,11 @@ export function grupoAtualizacoes<T extends { uf:string }>(atualizacoes:T[], cur
   return Array.from({length:Math.min(limite, ordenadas.length)}, (_, i) => ordenadas[(cursor+i)%ordenadas.length]);
 }
 
+/** Uma chamada guarda seu retrato completo até a próxima troca de grupo. */
+export function capturarGrupoAtualizacoes<T extends AtualizacaoEstadual>(atualizacoes:T[], cursor:number, limite:number):T[] {
+  return structuredClone(grupoAtualizacoes(atualizacoes,cursor,limite));
+}
+
 /** Chamadas próximas ao estado, ligadas à âncora, com espaço reservado entre os cartões. */
 export function posicionarAtualizacoes<T extends string>(
   pontos:{uf:T;x:number;y:number;limites?:Retangulo}[],

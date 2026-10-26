@@ -6,9 +6,10 @@ import { aplicarReplay } from "@/lib/replay";
 import { criarRoteiro, DURACAO_COMEMORACAO_MS, indiceNoTempo, posicaoTimelapse } from "@/lib/timelapse";
 import { fmtInt, fmtPct } from "@/lib/format";
 import { scopeName, type Scope } from "@/lib/ufs";
-import type { ApuracaoResponse, ReplayResponse } from "@/lib/types";
+import type { ApuracaoResponse, Candidato, ReplayResponse } from "@/lib/types";
 import MapaTimelapse from "./MapaTimelapse";
 import type {EventoVitoria} from "./AvisoVitoria";
+import styles from "./Apresentacao.module.css";
 
 const hora = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
@@ -51,48 +52,47 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
     </div>
   );
   return (
-    <section aria-label="Timelapse da apuração" data-decorrido-ms={Math.floor(decorrido)} className="w-full">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-white/20 pb-3">
-        <div>
-          <h2 className="text-xl font-bold sm:text-3xl" aria-live="polite">{marco?.titulo}</h2>
-          <p className="mt-1 text-sm text-white/75">{hora.format(new Date(dados.pontos[indice].t))} em Brasília · {fmtPct(nacional.pctTotalizado)} das urnas</p>
+    <section aria-label="Timelapse da apuração" data-decorrido-ms={Math.floor(decorrido)} className={styles.filme}>
+      <div className={styles.resumo}>
+        <CandidatoCompacto candidato={nacional.candidatos.find(c=>c.numero==="13")} />
+        <div className={styles.marco}>
+          <h2 aria-live="polite">{marco?.titulo}</h2>
+          <p>{hora.format(new Date(dados.pontos[indice].t))} em Brasília · {fmtPct(nacional.pctTotalizado)} das urnas</p>
+          <output className="tabular">{Math.floor(restante/60)}:{String(restante%60).padStart(2,"0")} restantes</output>
         </div>
-        <div className="text-right text-sm tabular"><span className="text-white/65">Timelapse de 1min30s</span><div className="text-xl font-bold">{Math.floor(restante/60)}:{String(restante%60).padStart(2,"0")}</div></div>
+        <CandidatoCompacto candidato={nacional.candidatos.find(c=>c.numero==="22")} direita />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Controles do timelapse">
-        <button type="button" disabled={carregando} onClick={onAlternar} className="rounded-full bg-[#FFDF00] px-4 py-2 text-sm font-bold text-[#07401d] disabled:opacity-50">{carregando ? "Preparando…" : pausado ? decorrido>=90000 ? "↻ Recomeçar" : "▶ Continuar" : "⏸ Pausar"}</button>
-        <button type="button" disabled={carregando} onClick={()=>onPosicionar(decorrido-10000)} className="rounded-full border border-white/30 px-3 py-2 text-sm disabled:opacity-50">↶ 10s</button>
-        <button type="button" disabled={carregando} onClick={()=>onPosicionar(decorrido+10000)} className="rounded-full border border-white/30 px-3 py-2 text-sm disabled:opacity-50">10s ↷</button>
-        <input type="range" disabled={carregando} min={0} max={90} step={0.25} value={decorrido/1000} onChange={e=>onPosicionar(Number(e.target.value)*1000)} aria-label="Posição do timelapse" aria-valuetext={`${Math.floor(decorrido/1000)} de 90 segundos`} className="min-w-40 flex-1 accent-[#FFDF00]"/>
-        <span className="text-xs tabular">{Math.floor(decorrido/1000)}s / 90s</span>
+      <div className={styles.controles} aria-label="Controles do timelapse">
+        <button type="button" disabled={carregando} onClick={onAlternar}>{carregando ? "Preparando…" : pausado ? decorrido>=90000 ? "↻ Recomeçar" : "▶ Continuar" : "⏸ Pausar"}</button>
+        <button type="button" disabled={carregando} onClick={()=>onPosicionar(decorrido-10000)}>↶ 10s</button>
+        <button type="button" disabled={carregando} onClick={()=>onPosicionar(decorrido+10000)}>10s ↷</button>
+        <input type="range" disabled={carregando} min={0} max={90} step={0.25} value={decorrido/1000} onChange={e=>onPosicionar(Number(e.target.value)*1000)} aria-label="Posição do timelapse" aria-valuetext={`${Math.floor(decorrido/1000)} de 90 segundos`}/>
+        <span className="tabular">{Math.floor(decorrido/1000)}s / 90s</span>
       </div>
+      <p className={styles.nota}>A música continua durante a pausa.</p>
 
-      <p className="mb-4 text-xs text-white/65">Pausar ou navegar pela timeline mantém a música tocando.</p>
-      <div className="mb-4 grid grid-cols-2 gap-4">
-        {["13","22"].map(numero => {
-          const c = nacional.candidatos.find(c=>c.numero===numero);
-          if (!c) return null;
-          return <div key={numero} className={`border-l-4 pl-3 ${numero === "22" ? "border-[#8b93ff]" : "border-[#ff7b87]"}`}>
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={c.foto} alt="" className="size-8 rounded-full object-cover" />{c.nome}
-            </div>
-            <div className="mt-1 text-3xl font-black tabular sm:text-4xl">{fmtPct(c.pct)}</div>
-            <div className="text-sm text-white/80 tabular">{fmtInt(c.votos)} votos</div>
-          </div>;
-        })}
-      </div>
+      <MapaTimelapse apuracao={atual!} scope={scope} onSelect={setScope} pausado={pausado} revisaoNavegacao={vitoria.revisaoNavegacao??0} />
 
-      <MapaTimelapse apuracao={atual!} scope={scope} onSelect={setScope} pausado={pausado} />
-
-      <ol className="mt-5 grid grid-cols-2 gap-2 border-t border-white/20 pt-3 text-xs sm:flex sm:flex-wrap sm:justify-between" aria-label="Marcos da apuração">
+      <details className={styles.detalhes}>
+        <summary>Marcos da apuração e fonte dos dados</summary>
+      <ol aria-label="Marcos da apuração">
         {roteiro.marcos.map((m,i)=><li key={`${m.tipo}-${m.indice}`} aria-current={m===marco ? "step" : undefined} className={m.indice <= indice ? "text-[#FFDF00]" : "text-white/45"}>
           <span className="block font-bold">{i+1}. {m.titulo}</span><span>{hora.format(new Date(dados.pontos[m.indice].t))}</span>
         </li>)}
       </ol>
-      <p className="mt-3 text-[11px] text-white/55">Snapshots gravados do TSE; UFs podem ter horários diferentes. A garantia matemática é uma conta deste site; o selo oficial só aparece no resultado final. {scope !== "br" && `Seleção: ${scopeName(scope)}.`}</p>
+      <p>Snapshots gravados do TSE; UFs podem ter horários diferentes. A garantia matemática é uma conta deste site; o selo oficial só aparece no resultado final. {scope !== "br" && `Seleção: ${scopeName(scope)}.`}</p>
+      </details>
       <div className="fixed inset-x-0 bottom-0 h-1.5 bg-white/10"><div className="h-full bg-[#FFDF00]" style={{width:`${100-decorrido/DURACAO_COMEMORACAO_MS*100}%`}}/></div>
     </section>
   );
+}
+
+function CandidatoCompacto({candidato:c,direita=false}:{candidato?:Candidato;direita?:boolean}) {
+  if (!c) return null;
+  return <div className={styles.candidato} data-direita={direita}>
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img src={c.foto} alt="" />
+    <div><p title={c.nome}>{c.nome}</p><strong className="tabular">{fmtPct(c.pct)}</strong><span className="tabular">{fmtInt(c.votos)} votos</span></div>
+  </div>;
 }

@@ -3,6 +3,17 @@ import { test } from "node:test";
 import { fatiasVotos, setorPizza, marcadoresSemColisao, posicionarChamada } from "../src/lib/mapa-timelapse.ts";
 import * as mapa from "../src/lib/mapa-timelapse.ts";
 
+test("visible callouts keep an immutable vote snapshot until the next group is captured", () => {
+  assert.equal(typeof mapa.capturarGrupoAtualizacoes,"function","Falta guardar os votos da chamada enquanto ela está visível");
+  const recentes=[{uf:"sp",antesApurado:10,agoraApurado:20,deltaValidos:50,candidatos:[{numero:"13",antes:{votos:100,pct:50},agora:{votos:120,pct:48},deltaVotos:20},{numero:"22",antes:{votos:100,pct:50},agora:{votos:130,pct:52},deltaVotos:30}]}];
+  const visivel=mapa.capturarGrupoAtualizacoes(recentes,0,1);
+  recentes[0].candidatos[0].agora.votos=999;
+  recentes[0].candidatos[1].antes.votos=888;
+  assert.equal(visivel[0].candidatos[0].agora.votos,120);
+  assert.equal(visivel[0].candidatos[1].antes.votos,100);
+  assert.equal(mapa.capturarGrupoAtualizacoes(recentes,0,1)[0].candidatos[0].agora.votos,999);
+});
+
 test("larger callouts respect complete state bounds and use reserved space outside the map", () => {
   const mapaDesenho={x:0,y:0,largura:740,altura:795};
   const limites={x:300,y:80,largura:400,altura:300};

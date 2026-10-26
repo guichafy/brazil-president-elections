@@ -5,6 +5,7 @@ import { assetPath } from "@/lib/assets";
 import { EASE, fixo, rgba, transformacao } from "@/lib/lottie";
 import type { ApuracaoResponse } from "@/lib/types";
 import TimelapseVitoria from "./TimelapseVitoria";
+import styles from "./Apresentacao.module.css";
 
 // Animações da LottieFiles (Lottie Simple License) em public/lottie/:
 // confete.json "Confetti - Full Screen" (Rohith R Krishnan) · fogos.json "Fireworks" (Laura Fonseca)
@@ -173,6 +174,7 @@ export interface EventoVitoria {
   aguardandoInicio?:boolean;
   preparando?:boolean;
   erroAudio?:string;
+  revisaoNavegacao?:number;
   eleito: boolean; // TSE já declarou; senão, vitória garantida pela conta
   pct: number;
   votos: number;
@@ -264,20 +266,20 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
           <p role="status" className="mt-5 text-xs text-white/60">{vitoria.preparando ? "A contagem começa quando tudo estiver pronto." : "Ative o volume. Você pode pausar e explorar os estados durante a reprodução."}</p>
           <button type="button" onClick={onFechar} disabled={vitoria.preparando} className="mt-8 rounded px-3 py-2 text-sm text-white/65 underline underline-offset-4 hover:text-white focus-visible:outline-2 focus-visible:outline-white">Explorar o resultado final</button>
         </div>
-      ) : <div className="relative mx-auto max-w-[1600px] px-4 py-6 pb-12 sm:px-8">
-        <header className="mb-5 flex items-center gap-3 pr-8">
-          <AnimacaoLula cor={corLula} className="hidden w-24 shrink-0 sm:block" />
+      ) : <div className={styles.apresentacao}>
+        <header className={styles.cabecalho}>
+          <AnimacaoLula cor={corLula} className={styles.lula} />
           <div>
             {vitoria.teste && <p className="text-xs text-white/65">Reprodução da comemoração</p>}
-            <h1 className="text-2xl font-black tracking-tight text-[#FFDF00] sm:text-4xl">{venceuSegundoTurno ? "Da apuração à vitória de Lula" : "Demonstração do timelapse da apuração"}</h1>
-            <p className="mt-1 text-xs text-white/70 sm:text-sm">Resultado final: {vitoria.pct.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% · {vitoria.votos.toLocaleString("pt-BR")} votos{venceuSegundoTurno && vitoria.eleito ? " · eleito pelo TSE" : ""}</p>
-            <button type="button" onClick={onOuvir} className="mt-2 rounded-full bg-[#FFDF00] px-4 py-2 text-xs font-bold text-[#07401d] hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <h1>{venceuSegundoTurno ? "Da apuração à vitória de Lula" : "Demonstração do timelapse da apuração"}</h1>
+            <p>Resultado final: {vitoria.pct.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% · {vitoria.votos.toLocaleString("pt-BR")} votos{venceuSegundoTurno && vitoria.eleito ? " · eleito pelo TSE" : ""}</p>
+          </div>
+            <button type="button" onClick={onOuvir} className={styles.reiniciar}>
               {vitoria.semSom ? "🔊 Ouvir e reiniciar os 90 segundos" : "↻ Reiniciar com áudio"}
             </button>
-          </div>
         </header>
         <TimelapseVitoria resultadoFinal={resultadoFinal} vitoria={vitoria} onTentar={onOuvir} onAlternar={onAlternar} onPosicionar={onPosicionar}/>
-        <p className="mt-4 text-[11px] text-white/50">Trilha: <a className="underline" href="https://www.youtube.com/watch?v=r4L7BYH1JHA" target="_blank" rel="noreferrer">Olê, olê, olê, olá · Exército da Esquerda</a> · trecho de 90 segundos.</p>
+        <p className={styles.fonte}>Trilha: <a className="underline" href="https://www.youtube.com/watch?v=r4L7BYH1JHA" target="_blank" rel="noreferrer">Olê, olê, olê, olá · Exército da Esquerda</a> · trecho de 90 segundos.</p>
       </div>}
 
     </div>

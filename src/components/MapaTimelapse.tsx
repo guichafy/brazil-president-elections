@@ -4,11 +4,12 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { geoIdentity, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import brasil from "@/data/brasil-ufs.json";
-import { atualizacoesEstaduais, fatiasVotos, grupoAtualizacoes, interpolarFatias, MAPA_VIEWBOX, posicionarAtualizacoes, setorPizza, marcadoresSemColisao, type AtualizacaoEstadual } from "@/lib/mapa-timelapse";
+import { atualizacoesEstaduais, fatiasVotos, interpolarFatias, MAPA_VIEWBOX, posicionarAtualizacoes, setorPizza, marcadoresSemColisao, type AtualizacaoEstadual } from "@/lib/mapa-timelapse";
 import { fmtInt, fmtPct } from "@/lib/format";
 import { UFS, scopeName, type Scope, type UF } from "@/lib/ufs";
 import type { ApuracaoResponse } from "@/lib/types";
 import styles from "./MapaTimelapse.module.css";
+import { useChamadasFixas } from "./useChamadasFixas";
 
 type UfFeature = Feature<Geometry, { uf:UF }>;
 const geo = brasil as unknown as FeatureCollection<Geometry, { uf:UF }>;
@@ -20,9 +21,10 @@ const shapes = geo.features.map((f:UfFeature) => {
 });
 const marcadores = marcadoresSemColisao(shapes);
 const COR:Record<string,string> = { "13":"#ef3340", "22":"#6269ef" };
-type Reacao = AtualizacaoEstadual & { versao: number };
+type Reacao = AtualizacaoEstadual & { versao: number; instante:string };
 type Reacoes = Partial<Record<UF, Reacao>>;
 const variacao = (votos: number) => `${votos >= 0 ? "+" : "−"}${fmtInt(Math.abs(votos))}`;
+const horario = new Intl.DateTimeFormat("pt-BR",{timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit",second:"2-digit"});
 
 function useFatiasAnimadas(ufs: ApuracaoResponse["ufs"]) {
   const alvos = useMemo(() => shapes.map(s => fatiasVotos(ufs[s.uf])), [ufs]);
@@ -33,12 +35,13 @@ function useFatiasAnimadas(ufs: ApuracaoResponse["ufs"]) {
   const recentes = useRef<Reacoes>({});
   const [reacoes, setReacoes] = useState<Reacoes>({});
   const [mudancas, setMudancas] = useState<AtualizacaoEstadual[]>([]);
+  const [fonte,setFonte] = useState(ufs);
   useEffect(() => {
     const origem = exibidas.current;
     const atualizacoes = atualizacoesEstaduais(anteriores.current, ufs);
     const rodada = ++versao.current;
     const proximasReacoes = { ...recentes.current };
-    for (const atualizacao of atualizacoes) proximasReacoes[atualizacao.uf] = { ...atualizacao, versao: rodada };
+    for (const atualizacao of atualizacoes) proximasReacoes[atualizacao.uf] = { ...atualizacao, versao: rodada, instante:ufs[atualizacao.uf]!.isoDataHora };
     const inicio = performance.now();
     const movimento = window.matchMedia("(prefers-reduced-motion: reduce)");
     let quadro: number;
@@ -49,6 +52,7 @@ function useFatiasAnimadas(ufs: ApuracaoResponse["ufs"]) {
         recentes.current = proximasReacoes;
         setReacoes(proximasReacoes);
         setMudancas(atualizacoes);
+        setFonte(ufs);
         primeiro = false;
       }
       const t = movimento.matches ? 1 : Math.min(1, (agora - inicio) / 650);
@@ -60,37 +64,32 @@ function useFatiasAnimadas(ufs: ApuracaoResponse["ufs"]) {
     quadro = requestAnimationFrame(desenhar);
     return () => cancelAnimationFrame(quadro);
   }, [alvos, ufs]);
-  return { fatias, reacoes, mudancas };
+  return { fatias, reacoes, mudancas, fonte };
 }
 
-export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false }: {
+export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false, revisaoNavegacao=0 }: {
   apuracao:ApuracaoResponse;
   scope:Scope;
   onSelect:(s:Scope)=>void;
   pausado?:boolean;
+  revisaoNavegacao?:number;
 }) {
   const id = useId().replace(/:/g,"");
   const area = useRef<HTMLDivElement>(null);
   const desenho = useRef<SVGSVGElement>(null);
   const seletor = useRef<HTMLSelectElement>(null);
   const [medidas,setMedidas] = useState({ largura:0, altura:0, mapa:{x:0,y:0,largura:0,altura:0} });
-  const [cursor,setCursor] = useState(0);
-  const { fatias: fatiasAnimadas, reacoes, mudancas } = useFatiasAnimadas(apuracao.ufs);
+  const { fatias: fatiasAnimadas, reacoes, mudancas, fonte } = useFatiasAnimadas(apuracao.ufs);
   const atualizados = new Set(mudancas.map(m => m.uf));
   const candidatos = apuracao.nacional?.candidatos.filter(c=>c.numero==="13"||c.numero==="22")??[];
   const detalhe = scope==="zz" ? apuracao.exterior : scope==="br" ? null : apuracao.ufs[scope];
   const selecionar = (uf:Scope) => onSelect(scope===uf ? "br" : uf);
-  const limite = medidas.largura >= 1100 ? 3 : medidas.largura >= 740 ? 2 : 1;
+  const limite = medidas.largura >= 1040 && medidas.altura >= 420 ? 3 : medidas.largura >= 740 ? 2 : 1;
   const duracaoChamada = medidas.largura >= 740 ? 6000 : 3000;
   const larguraChamada = Math.max(0, Math.min(340, medidas.largura - 24));
-  const grupo = grupoAtualizacoes(Object.values(reacoes).filter(r=>r.candidatos.some(c=>c.deltaVotos!==0)), cursor, limite);
+  const candidatas=useMemo(()=>Object.values(reacoes).filter(r=>r.candidatos.some(c=>c.deltaVotos!==0)),[reacoes]);
+  const grupo = useChamadasFixas(candidatas,fonte===apuracao.ufs,limite,duracaoChamada,pausado,revisaoNavegacao);
   const chamadas = posicionarAtualizacoes(grupo.map(r=>shapes.find(s=>s.uf===r.uf)!), medidas, {largura:larguraChamada,altura:196}, {mapa:medidas.mapa,evitar:shapes.map(s=>s.limites)});
-
-  useEffect(() => {
-    if (pausado) return;
-    const timer=setInterval(()=>setCursor(c=>c+limite),duracaoChamada);
-    return ()=>clearInterval(timer);
-  }, [pausado,limite,duracaoChamada]);
 
   useEffect(() => {
     const medir = () => {
@@ -107,11 +106,11 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
   },[]);
 
   return (
-    <section aria-label="Explorar a votação por estado">
+    <section aria-label="Explorar a votação por estado" className={styles.exploracao} data-detalhe={!!detalhe}>
       <div className={styles.cabecalho}>
         <div>
           <h3 className="text-base font-bold sm:text-lg">A apuração pelo Brasil</h3>
-          <p id={`${id}-instrucao`} className="mt-1 text-xs text-white/70 sm:text-sm">Os votos de antes e depois aparecem junto aos estados, sem clicar. As chamadas se alternam; pause para conferir.</p>
+          <p id={`${id}-instrucao`} className="text-white/65">Chamadas fixas para leitura; mapa e música continuam.</p>
         </div>
         <label className={styles.seletor}>
           <span className="sr-only">Escolher estado</span>
@@ -162,10 +161,10 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
             </g>)}
           </svg>
           {chamadas.map(c=>{
-            const r=reacoes[c.uf]!;
+            const r=grupo.find(r=>r.uf===c.uf)!;
             return <div key={c.uf} role="region" aria-label={`Atualização automática de ${UFS[c.uf]}`} data-uf={c.uf} className={styles.chamadaAutomatica} style={{left:c.x,top:c.y,width:larguraChamada,height:196}}>
               <strong className={styles.tituloChamada} title={UFS[c.uf]}>{c.uf.toUpperCase()} · {UFS[c.uf]}</strong>
-              <p className={styles.legendaChamada}>Votos absolutos · Antes → Depois</p>
+              <p className={styles.legendaChamada}>Antes → Depois · registro das {horario.format(new Date(r.instante))}</p>
               {r.candidatos.map(candidato=><div key={candidato.numero} className={styles.candidatoChamada}>
                 <div className={styles.nomeChamada}><strong style={{color:candidato.numero==="13" ? "#ffb6bd" : "#c5c9ff"}}>{candidato.numero==="13" ? "Lula" : "Flávio Bolsonaro"}</strong><span>{variacao(candidato.deltaVotos)}</span></div>
                 <div className={styles.votosChamada}><span>{fmtInt(candidato.antes.votos)}</span><span aria-hidden="true">→</span><strong>{fmtInt(candidato.agora.votos)}</strong></div>

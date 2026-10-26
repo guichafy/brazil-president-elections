@@ -1,20 +1,31 @@
+.exploracao {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
 .cabecalho {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 6px 12px;
+  margin-bottom: 6px;
+  flex-shrink: 0;
 }
+
+.cabecalho h3 { font-size: 14px; line-height: 18px; }
+.cabecalho p { font-size: 10px; line-height: 13px; }
 
 .seletor select {
   max-width: 100%;
   border: 1px solid #ffffff40;
   border-radius: 8px;
   background: #052f18;
-  padding: 9px 12px;
+  padding: 5px 10px;
   color: white;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -25,6 +36,10 @@
 }
 
 .quadro {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
   position: relative;
   border: 1px solid #ffffff26;
   border-radius: 16px;
@@ -145,15 +160,18 @@
 
 .area {
   position: relative;
-  --altura-mapa: min(80dvh, calc((100vw - 32px) * 1.07));
-  height: calc(var(--altura-mapa) + 224px);
+  flex: 1;
+  min-height: 220px;
   overflow: hidden;
 }
 
 .mapa {
   display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 100%;
-  height: var(--altura-mapa);
+  height: calc(100% - 224px);
 }
 
 .estado {
@@ -179,6 +197,7 @@
 }
 
 .detalhe {
+  flex-shrink: 0;
   position: relative;
   margin: 0 12px 12px;
   border: 1px solid #ffdf0066;
@@ -216,17 +235,18 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding-top: 12px;
+  gap: 6px 12px;
+  padding-top: 5px;
+  flex-shrink: 0;
 }
 
-@media (min-width: 768px) {
-  .area {
-    --altura-mapa: min(82dvh, 880px, calc((100vw - 64px) * 1.07));
-  }
+.rodape > div, .rodape button { font-size: 10px; line-height: 13px; }
+.exploracao[data-detalhe="true"] { min-height: calc(100dvh + 280px); }
+
+@media (max-width: 1099px) {
+  .area { min-height: 440px; }
 }
 
-@media (min-width: 1600px) {
-  .area { height: var(--altura-mapa); }
-  .mapa { width: calc(100% - 728px); margin-inline: 364px; }
+@media (min-width: 1100px) {
+  .mapa { left: 364px; width: calc(100% - 728px); height: 100%; }
 }
