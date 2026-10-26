@@ -1,0 +1,143 @@
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.seletor select {
+  max-width: 100%;
+  border: 1px solid #ffffff40;
+  border-radius: 8px;
+  background: #052f18;
+  padding: 9px 12px;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.seletor select:focus-visible,
+.fechar:focus-visible {
+  outline: 2px solid #ffdf00;
+  outline-offset: 3px;
+}
+
+.quadro {
+  position: relative;
+  border: 1px solid #ffffff26;
+  border-radius: 16px;
+  background: #052f18;
+  overflow: hidden;
+}
+
+.area {
+  position: relative;
+  height: min(80dvh, calc((100vw - 32px) * 1.07));
+  overflow: hidden;
+}
+
+.mapa {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.estado {
+  cursor: pointer;
+  outline: none;
+}
+
+.contorno {
+  stroke: #d4e8dc;
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.estado[data-selecionado="true"] .contorno,
+.estado:focus-visible .contorno {
+  stroke: #ffdf00;
+  stroke-width: 3;
+}
+
+.estado:hover .contorno {
+  stroke: #fff4a1;
+  stroke-width: 2;
+}
+
+.conector {
+  display: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.detalhe {
+  position: relative;
+  margin: 0 12px 12px;
+  border: 1px solid #ffdf0066;
+  border-radius: 12px;
+  background: #073b22;
+  padding: 16px;
+  color: white;
+}
+
+.fechar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ffffff0d;
+  color: #ffffffb3;
+  cursor: pointer;
+}
+
+.fechar:hover {
+  background: #ffffff26;
+  color: white;
+}
+
+.candidato {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+@media (min-width: 768px) {
+  .area {
+    height: min(82dvh, 880px, calc((100vw - 64px) * 1.07));
+  }
+}
+
+@media (min-width: 1280px) {
+  .detalhe {
+    width: 288px;
+    max-width: calc(100% - 24px);
+  }
+
+  .quadro[data-chamada-flutuante="true"] .conector {
+    display: block;
+  }
+
+  .quadro[data-chamada-flutuante="true"] .detalhe {
+    position: absolute;
+    top: var(--chamada-y, 16px);
+    left: var(--chamada-x, calc(100% - 304px));
+    margin: 0;
+    box-shadow: 0 12px 32px #00180c40;
+  }
+}

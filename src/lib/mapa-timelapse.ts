@@ -19,12 +19,25 @@ export function setorPizza(cx: number, cy: number, r: number, inicio: number, fr
   return `M ${cx} ${cy} L ${cx+r*Math.cos(a)} ${cy+r*Math.sin(a)} A ${r} ${r} 0 ${fracao>0.5 ? 1 : 0} 1 ${cx+r*Math.cos(b)} ${cy+r*Math.sin(b)} Z`;
 }
 
-export function posicionarChamadas<T extends string>(pontos: {uf:T;x:number;y:number}[]) {
-  const porLongitude=[...pontos].sort((a,b)=>a.x-b.x);
-  const metade=Math.ceil(porLongitude.length/2);
-  return [porLongitude.slice(0,metade),porLongitude.slice(metade)].flatMap((coluna,n)=>
-    coluna.sort((a,b)=>a.y-b.y).map((p,i)=>({uf:p.uf,x:n===0 ? 0 : 996,y:26+i*61,lado:n===0 ? "esq" as const : "dir" as const})),
-  );
+export const MAPA_VIEWBOX = { x:250, y:50, largura:740, altura:795 };
+
+/** Uma chamada, na margem oposta ao estado, acompanhando o SVG sem zoom. */
+export function posicionarChamada(
+  ponto:{x:number;y:number},
+  area:{largura:number;altura:number},
+  caixa:{largura:number;altura:number},
+) {
+  if (area.altura<caixa.altura+32) return null;
+  const escala=Math.min(area.largura/MAPA_VIEWBOX.largura,area.altura/MAPA_VIEWBOX.altura);
+  const ancora={
+    x:(area.largura-MAPA_VIEWBOX.largura*escala)/2+(ponto.x-MAPA_VIEWBOX.x)*escala,
+    y:(area.altura-MAPA_VIEWBOX.altura*escala)/2+(ponto.y-MAPA_VIEWBOX.y)*escala,
+  };
+  const lado=ancora.x>=area.largura/2 ? "esq" : "dir";
+  const x=lado==="esq" ? 16 : area.largura-caixa.largura-16;
+  const y=Math.max(16,Math.min(area.altura-caixa.altura-16,ancora.y-48));
+  const ponta={x:lado==="esq" ? x+caixa.largura : x,y:y+48};
+  return {x,y,lado,ancora,ponta};
 }
 
 export function marcadoresSemColisao<T extends string>(pontos:{uf:T;x:number;y:number}[]) {

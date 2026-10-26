@@ -76,7 +76,7 @@ O replay inicia no resultado final e carrega `dados/replay.json` uma única vez.
 
 A comemoração usa os primeiros 90 segundos do [vídeo indicado](https://www.youtube.com/watch?v=r4L7BYH1JHA), obtidos com `~/Workspaces/Bin/yt-dlp` e convertidos localmente com `ffmpeg`, com fade nos dois segundos finais. Origem, recorte e SHA-256 estão em `data/audio-vitoria.json`. Pausar ou buscar reposiciona o áudio e o filme juntos; o botão de áudio reinicia ambos. Os marcos vêm dos votos gravados: primeira virada às 19:44:44, retomada de Lula às 20:24:14 e garantia matemática às 21:08:54. Os insights são diferenças entre registros, não uma atribuição causal da vitória a um estado.
 
-O mapa do timelapse substitui a tabela estadual: territórios em setores, pizza circular, fotos e chamadas com contagens absolutas e proporção dos válidos. No zoom padrão, largura e altura se ajustam sem rolagem interna; o celular prioriza o território e exibe os dados da UF selecionada. Pan fica disponível após ampliar o zoom.
+O mapa do timelapse substitui a tabela estadual: o Brasil ocupa a área central, com territórios em setores e pizzas proporcionais aos votos válidos. Clique em uma UF para exibir uma única chamada com fotos, votos absolutos, percentuais e avanço da apuração; o detalhe acompanha o momento da timeline. No celular, o detalhe aparece abaixo do mapa. A visualização se ajusta à tela sem zoom, pan ou rolagem interna; um seletor também permite explorar estados pequenos e os votos do exterior.
 
 Para capturar novamente dados completos e fotos, **somente quando desejar atualizar o arquivo**:
 

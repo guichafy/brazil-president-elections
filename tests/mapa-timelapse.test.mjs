@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fatiasVotos, posicionarChamadas, setorPizza, marcadoresSemColisao } from "../src/lib/mapa-timelapse.ts";
+import { fatiasVotos, setorPizza, marcadoresSemColisao, posicionarChamada } from "../src/lib/mapa-timelapse.ts";
 
 test("pie sectors follow valid candidate votes and preserve zero/complete states", () => {
   const r={validos:100,candidatos:[{numero:"13",votos:25},{numero:"22",votos:75}]};
@@ -26,14 +26,25 @@ test("pie badges and UF labels do not overlap in tightly spaced states", () => {
   }
 });
 
-test("geographic callouts remain unique and do not overlap for 27 states", () => {
-  const pontos=Array.from({length:27},(_,i)=>({uf:String(i),x:300+i*15,y:100+(i%3)*30}));
-  const layout=posicionarChamadas(pontos);
-  assert.equal(layout.length,27);
-  assert.equal(new Set(layout.map(l=>`${l.x},${l.y}`)).size,27);
-  for(const lado of ["esq","dir"]){
-    const coluna=layout.filter(l=>l.lado===lado).sort((a,b)=>a.y-b.y);
-    assert(coluna.every((l,i)=>i===0||l.y-coluna[i-1].y>=60));
-    assert(coluna.at(-1).y+58<=900);
+test("selected state callout stays inside the map and on the opposite side of its anchor", () => {
+  for(const ponto of [{x:300,y:70},{x:950,y:800},{x:620,y:447.5}]){
+    const layout=posicionarChamada(ponto,{largura:1440,altura:660},{largura:288,altura:320});
+    assert.ok(layout,"A seleção precisa de uma chamada individual");
+    assert(layout.x>=16&&layout.x+288<=1424);
+    assert(layout.y>=16&&layout.y+320<=644);
+    if(layout.ancora.x<720) assert(layout.x>layout.ancora.x);
+    else assert(layout.x+288<layout.ancora.x);
   }
+});
+
+test("selected state connector follows the fitted map after a viewport resize", () => {
+  // O centro do viewBox (250, 50, 740, 795) continua no centro da área,
+  // inclusive com as margens criadas por preserveAspectRatio=meet.
+  const layout=posicionarChamada({x:620,y:447.5},{largura:1480,altura:795},{largura:288,altura:320});
+  assert.ok(layout,"A chamada precisa acompanhar o mapa redimensionado");
+  assert.deepEqual(layout.ancora,{x:740,y:397.5});
+});
+
+test("a short viewport keeps the state detail out of the clipped map area", () => {
+  assert.equal(posicionarChamada({x:750,y:600},{largura:1280,altura:262},{largura:288,altura:320}),null);
 });
