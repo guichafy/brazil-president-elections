@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { geoIdentity, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import brasil from "@/data/brasil-ufs.json";
-import { atualizacoesEstaduais, fatiasVotos, interpolarFatias, MAPA_VIEWBOX, posicionarChamada, setorPizza, marcadoresSemColisao, type AtualizacaoEstadual } from "@/lib/mapa-timelapse";
+import { atualizacoesEstaduais, fatiasVotos, grupoAtualizacoes, interpolarFatias, MAPA_VIEWBOX, posicionarAtualizacoes, setorPizza, marcadoresSemColisao, type AtualizacaoEstadual } from "@/lib/mapa-timelapse";
 import { fmtInt, fmtPct } from "@/lib/format";
 import { UFS, scopeName, type Scope, type UF } from "@/lib/ufs";
 import type { ApuracaoResponse } from "@/lib/types";
@@ -63,48 +63,51 @@ function useFatiasAnimadas(ufs: ApuracaoResponse["ufs"]) {
   return { fatias, reacoes, mudancas };
 }
 
-export default function MapaTimelapse({ apuracao, scope, onSelect }: {
+export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false }: {
   apuracao:ApuracaoResponse;
   scope:Scope;
   onSelect:(s:Scope)=>void;
+  pausado?:boolean;
 }) {
   const id = useId().replace(/:/g,"");
   const area = useRef<HTMLDivElement>(null);
-  const cartao = useRef<HTMLDivElement>(null);
   const seletor = useRef<HTMLSelectElement>(null);
-  const listaAtualizacoes = useRef<HTMLDivElement>(null);
-  const [medidas,setMedidas] = useState({ largura:0, altura:0, cartaoAltura:320 });
+  const [medidas,setMedidas] = useState({ largura:0, altura:0 });
+  const [cursor,setCursor] = useState(0);
   const { fatias: fatiasAnimadas, reacoes, mudancas } = useFatiasAnimadas(apuracao.ufs);
   const atualizados = new Set(mudancas.map(m => m.uf));
   const candidatos = apuracao.nacional?.candidatos.filter(c=>c.numero==="13"||c.numero==="22")??[];
   const detalhe = scope==="zz" ? apuracao.exterior : scope==="br" ? null : apuracao.ufs[scope];
-  const estado = shapes.find(s=>s.uf===scope);
-  const chamada = estado && medidas.largura ? posicionarChamada(estado,medidas,{ largura:288, altura:medidas.cartaoAltura }) : null;
   const selecionar = (uf:Scope) => onSelect(scope===uf ? "br" : uf);
-  const ultimasAtualizacoes = Object.values(reacoes).sort((a, b) =>
-    Number(b.uf === scope) - Number(a.uf === scope) || b.versao - a.versao || Math.abs(b.deltaValidos) - Math.abs(a.deltaValidos));
+  const limite = medidas.largura >= 1000 && medidas.altura >= 500 ? 3 : medidas.largura >= 650 && medidas.altura >= 400 ? 2 : 1;
+  const larguraChamada = Math.max(0, Math.min(264, medidas.largura - 24));
+  const grupo = grupoAtualizacoes(Object.values(reacoes).filter(r=>r.candidatos.some(c=>c.deltaVotos!==0)), cursor, limite);
+  const chamadas = posicionarAtualizacoes(grupo.map(r=>shapes.find(s=>s.uf===r.uf)!), medidas, {largura:larguraChamada,altura:144});
 
-  useEffect(() => { listaAtualizacoes.current?.scrollTo({ top:0 }); }, [scope]);
+  useEffect(() => {
+    if (pausado) return;
+    const timer=setInterval(()=>setCursor(c=>c+limite),1800);
+    return ()=>clearInterval(timer);
+  }, [pausado,limite]);
 
   useEffect(() => {
     const medir = () => {
       if (!area.current) return;
-      const a=area.current.getBoundingClientRect(), c=cartao.current?.getBoundingClientRect();
-      const proxima={ largura:a.width, altura:a.height, cartaoAltura:c?.height??320 };
+      const a=area.current.getBoundingClientRect();
+      const proxima={ largura:a.width, altura:a.height };
       setMedidas(anterior=>Object.keys(proxima).every(k=>proxima[k as keyof typeof proxima]===anterior[k as keyof typeof anterior]) ? anterior : proxima);
     };
     const observer = new ResizeObserver(medir);
     observer.observe(area.current!);
-    if (cartao.current) observer.observe(cartao.current);
     return () => observer.disconnect();
-  },[scope]);
+  },[]);
 
   return (
     <section aria-label="Explorar a votação por estado">
       <div className={styles.cabecalho}>
         <div>
           <h3 className="text-base font-bold sm:text-lg">A apuração pelo Brasil</h3>
-          <p id={`${id}-instrucao`} className="mt-1 text-xs text-white/70 sm:text-sm">Os estados acendem ao receber atualizações. Pause para conferir os votos de antes e agora.</p>
+          <p id={`${id}-instrucao`} className="mt-1 text-xs text-white/70 sm:text-sm">Os votos de antes e depois aparecem junto aos estados, sem clicar. As chamadas se alternam; pause para conferir.</p>
         </div>
         <label className={styles.seletor}>
           <span className="sr-only">Escolher estado</span>
@@ -116,8 +119,7 @@ export default function MapaTimelapse({ apuracao, scope, onSelect }: {
         </label>
       </div>
 
-      <div className={styles.layoutReacoes}>
-      <div className={styles.quadro} data-chamada-flutuante={medidas.altura>=medidas.cartaoAltura+32}>
+      <div className={styles.quadro}>
         <div ref={area} role="region" aria-label="Mapa do Brasil com votos por estado" aria-describedby={`${id}-instrucao`} className={styles.area}>
           <svg viewBox={`${MAPA_VIEWBOX.x} ${MAPA_VIEWBOX.y} ${MAPA_VIEWBOX.largura} ${MAPA_VIEWBOX.altura}`} preserveAspectRatio="xMidYMid meet" className={styles.mapa} role="group" aria-label="Mapa animado da votação proporcional por estado">
             <defs>
@@ -148,14 +150,27 @@ export default function MapaTimelapse({ apuracao, scope, onSelect }: {
               </g>;
             })}
           </svg>
-
-          {chamada && detalhe && <svg className={styles.conector} viewBox={`0 0 ${medidas.largura} ${medidas.altura}`} aria-hidden="true">
-            <path d={`M ${chamada.ancora.x} ${chamada.ancora.y} L ${chamada.ponta.x+(chamada.lado==="esq" ? 24 : -24)} ${chamada.ancora.y} L ${chamada.ponta.x} ${chamada.ponta.y}`} fill="none" stroke="#FFDF00" strokeWidth={1.5}/>
-            <circle cx={chamada.ancora.x} cy={chamada.ancora.y} r={5} fill="#FFDF00" stroke="#052f18" strokeWidth={2}/>
-          </svg>}
+          <svg className={styles.conectoresAutomaticos} viewBox={`0 0 ${medidas.largura} ${medidas.altura}`} aria-hidden="true">
+            {chamadas.map(c=><g key={c.uf}>
+              <path d={`M ${c.ancora.x} ${c.ancora.y} L ${c.ponta.x} ${c.ponta.y}`} fill="none" stroke="#052f18" strokeWidth={5}/>
+              <path d={`M ${c.ancora.x} ${c.ancora.y} L ${c.ponta.x} ${c.ponta.y}`} fill="none" stroke="#FFDF00" strokeWidth={1.5}/>
+              <circle cx={c.ancora.x} cy={c.ancora.y} r={5} fill="#FFDF00" stroke="#052f18" strokeWidth={2}/>
+            </g>)}
+          </svg>
+          {chamadas.map(c=>{
+            const r=reacoes[c.uf]!;
+            return <div key={c.uf} role="region" aria-label={`Atualização automática de ${UFS[c.uf]}`} data-uf={c.uf} className={styles.chamadaAutomatica} style={{left:c.x,top:c.y,width:larguraChamada,height:144}}>
+              <strong className={styles.tituloChamada} title={UFS[c.uf]}>{c.uf.toUpperCase()} · {UFS[c.uf]}</strong>
+              <p className={styles.legendaChamada}>Votos absolutos · Antes → Depois</p>
+              {r.candidatos.map(candidato=><div key={candidato.numero} className={styles.candidatoChamada}>
+                <div className={styles.nomeChamada}><strong style={{color:candidato.numero==="13" ? "#ffb6bd" : "#c5c9ff"}}>{candidato.numero==="13" ? "Lula" : "Flávio Bolsonaro"}</strong><span>{variacao(candidato.deltaVotos)}</span></div>
+                <div className={styles.votosChamada}><span>{fmtInt(candidato.antes.votos)}</span><span aria-hidden="true">→</span><strong>{fmtInt(candidato.agora.votos)}</strong></div>
+              </div>)}
+            </div>;
+          })}
         </div>
 
-        {detalhe && <div ref={cartao} id={`${id}-detalhe`} role="region" aria-label={`Detalhes de ${scopeName(scope)}`} className={styles.detalhe} style={chamada ? { "--chamada-x":`${chamada.x}px`, "--chamada-y":`${chamada.y}px` } as React.CSSProperties : undefined}>
+        {detalhe && <div id={`${id}-detalhe`} role="region" aria-label={`Detalhes de ${scopeName(scope)}`} className={styles.detalhe}>
           <div className="flex items-start justify-between gap-3">
             <div><p className="text-xs text-white/60">{scope==="zz" ? "Votos no exterior" : scope.toUpperCase()}</p><h4 className="mt-0.5 text-lg font-bold">{scopeName(scope)}</h4></div>
             <button type="button" aria-label="Fechar detalhes do estado" onClick={()=>{onSelect("br");seletor.current?.focus();}} className={styles.fechar}>✕</button>
@@ -178,35 +193,6 @@ export default function MapaTimelapse({ apuracao, scope, onSelect }: {
           <p className="mt-4 border-t border-white/15 pt-3 text-[11px] text-white/65 tabular">{fmtInt(detalhe.validos)} votos válidos neste momento.</p>
         </div>}
       </div>
-      <aside className={styles.atualizacoes} aria-label="Votação antes e depois por estado">
-        <div className={styles.tituloAtualizacoes}>
-          <h4 className="text-base font-bold">Antes → Agora</h4>
-          <p className="mt-1 text-xs text-white/65">{mudancas.length ? `${mudancas.length} ${mudancas.length === 1 ? "estado atualizado" : "estados atualizados"} nesta etapa` : "Últimas atualizações dos estados"}</p>
-          <p className="mt-2 text-[11px] leading-relaxed text-white/55">Votos e percentuais entre os quadros exibidos. Ao voltar no tempo, as diferenças acompanham a navegação.</p>
-        </div>
-        <div ref={listaAtualizacoes} className={styles.listaAtualizacoes}>
-          {ultimasAtualizacoes.map(r => <article key={r.uf} aria-label={`Atualização de ${UFS[r.uf]}`} className={styles.atualizacao} data-recente={atualizados.has(r.uf)}>
-            <div className="flex items-start justify-between gap-2">
-              <button type="button" onClick={() => selecionar(r.uf)} aria-pressed={scope === r.uf} className={styles.nomeAtualizacao}>{r.uf.toUpperCase()} · {UFS[r.uf]}</button>
-              <span className="shrink-0 text-xs font-bold text-[#FFDF00] tabular">{variacao(r.deltaValidos)} votos</span>
-            </div>
-            <p className="mt-1 text-[11px] text-white/60 tabular">Urnas: {fmtPct(r.antesApurado)} → {fmtPct(r.agoraApurado)}</p>
-            <div className="mt-3 space-y-3">
-              {r.candidatos.map(c => <div key={c.numero}>
-                <div className="flex items-center justify-between gap-2 text-xs"><strong style={{color:c.numero === "13" ? "#ffb6bd" : "#c5c9ff"}}>{c.numero === "13" ? "Lula" : "Flávio Bolsonaro"}</strong><span className="tabular text-white/80">{variacao(c.deltaVotos)} votos</span></div>
-                <div className={styles.antesAgora}>
-                  <div><span>Antes</span><strong>{fmtPct(c.antes.pct)}</strong><div>{fmtInt(c.antes.votos)} votos</div></div>
-                  <span aria-hidden="true">→</span>
-                  <div><span>Agora</span><strong>{fmtPct(c.agora.pct)}</strong><div>{fmtInt(c.agora.votos)} votos</div></div>
-                </div>
-              </div>)}
-            </div>
-          </article>)}
-          {!Object.keys(reacoes).length && <p className="p-4 text-sm leading-relaxed text-white/65">Aguardando a próxima entrada de votos. Cada estado atualizado aparecerá aqui com a votação anterior e a nova.</p>}
-        </div>
-      </aside>
-      </div>
-
       <div className={styles.rodape}>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/80" aria-label="Legenda dos candidatos">
           {["13","22"].map(n=><span key={n} className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{background:COR[n]}}/>{n==="13" ? "Lula" : "Flávio Bolsonaro"}</span>)}

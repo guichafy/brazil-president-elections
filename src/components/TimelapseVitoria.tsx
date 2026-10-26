@@ -83,7 +83,7 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
         })}
       </div>
 
-      <MapaTimelapse apuracao={atual!} scope={scope} onSelect={setScope} />
+      <MapaTimelapse apuracao={atual!} scope={scope} onSelect={setScope} pausado={pausado} />
 
       <ol className="mt-5 grid grid-cols-2 gap-2 border-t border-white/20 pt-3 text-xs sm:flex sm:flex-wrap sm:justify-between" aria-label="Marcos da apuração">
         {roteiro.marcos.map((m,i)=><li key={`${m.tipo}-${m.indice}`} aria-current={m===marco ? "step" : undefined} className={m.indice <= indice ? "text-[#FFDF00]" : "text-white/45"}>

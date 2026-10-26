@@ -62,6 +62,56 @@ export function setorPizza(cx: number, cy: number, r: number, inicio: number, fr
 
 export const MAPA_VIEWBOX = { x:250, y:50, largura:740, altura:795 };
 
+function ancoraNoMapa(ponto:{x:number;y:number}, area:{largura:number;altura:number}) {
+  const escala = Math.min(area.largura / MAPA_VIEWBOX.largura, area.altura / MAPA_VIEWBOX.altura);
+  return {
+    x:(area.largura-MAPA_VIEWBOX.largura*escala)/2+(ponto.x-MAPA_VIEWBOX.x)*escala,
+    y:(area.altura-MAPA_VIEWBOX.altura*escala)/2+(ponto.y-MAPA_VIEWBOX.y)*escala,
+  };
+}
+
+/** Grupos pequenos e estáveis percorrem todas as UFs que tiveram entradas de votos. */
+export function grupoAtualizacoes<T extends { uf:string }>(atualizacoes:T[], cursor:number, limite:number):T[] {
+  if (!atualizacoes.length) return [];
+  const ordenadas = [...atualizacoes].sort((a,b) => a.uf.localeCompare(b.uf));
+  return Array.from({length:Math.min(limite, ordenadas.length)}, (_, i) => ordenadas[(cursor+i)%ordenadas.length]);
+}
+
+/** Chamadas próximas ao estado, ligadas à âncora, com espaço reservado entre os cartões. */
+export function posicionarAtualizacoes<T extends string>(
+  pontos:{uf:T;x:number;y:number}[],
+  area:{largura:number;altura:number},
+  caixa:{largura:number;altura:number},
+) {
+  const margem=12, gap=8, w=caixa.largura, h=caixa.altura;
+  const colocadas:{uf:T;x:number;y:number;ancora:{x:number;y:number};ponta:{x:number;y:number}}[]=[];
+  if (area.largura<w+2*margem || area.altura<h+2*margem) return colocadas;
+  const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
+  const ancoras=pontos.map(p=>({...p,ancora:ancoraNoMapa(p,area)}));
+  for (const p of ancoras) {
+    const a=p.ancora;
+    const opcoes=[
+      {x:a.x+24,y:a.y-h/2}, {x:a.x-w-24,y:a.y-h/2},
+      {x:a.x-w/2,y:a.y-h-24}, {x:a.x-w/2,y:a.y+24},
+      {x:a.x+24,y:a.y-h-24}, {x:a.x-w-24,y:a.y+24},
+      {x:a.x-w-24,y:a.y-h-24}, {x:a.x+24,y:a.y+24},
+    ];
+    for(let y=margem;y<=area.altura-h-margem;y+=h+gap)
+      for(let x=margem;x<=area.largura-w-margem;x+=w+gap)opcoes.push({x,y});
+    const candidatos=opcoes.map(o=>({x:clamp(o.x,margem,area.largura-w-margem),y:clamp(o.y,margem,area.altura-h-margem)}))
+      .filter(o=>colocadas.every(c=>o.x+w+gap<=c.x||c.x+w+gap<=o.x||o.y+h+gap<=c.y||c.y+h+gap<=o.y))
+      .map(o=>{
+        const ponta={x:clamp(a.x,o.x,o.x+w),y:clamp(a.y,o.y,o.y+h)};
+        const cobre=(b:{x:number;y:number})=>b.x>o.x-8&&b.x<o.x+w+8&&b.y>o.y-8&&b.y<o.y+h+8;
+        const custo=Math.hypot(a.x-ponta.x,a.y-ponta.y)+ancoras.filter(b=>cobre(b.ancora)).length*10000;
+        return {...o,ponta,custo};
+      }).sort((a,b)=>a.custo-b.custo);
+    const melhor=candidatos[0];
+    if (melhor) colocadas.push({uf:p.uf,x:melhor.x,y:melhor.y,ancora:a,ponta:melhor.ponta});
+  }
+  return colocadas;
+}
+
 /** Uma chamada, na margem oposta ao estado, acompanhando o SVG sem zoom. */
 export function posicionarChamada(
   ponto:{x:number;y:number},
@@ -69,11 +119,7 @@ export function posicionarChamada(
   caixa:{largura:number;altura:number},
 ) {
   if (area.altura<caixa.altura+32) return null;
-  const escala=Math.min(area.largura/MAPA_VIEWBOX.largura,area.altura/MAPA_VIEWBOX.altura);
-  const ancora={
-    x:(area.largura-MAPA_VIEWBOX.largura*escala)/2+(ponto.x-MAPA_VIEWBOX.x)*escala,
-    y:(area.altura-MAPA_VIEWBOX.altura*escala)/2+(ponto.y-MAPA_VIEWBOX.y)*escala,
-  };
+  const ancora=ancoraNoMapa(ponto,area);
   const lado=ancora.x>=area.largura/2 ? "esq" : "dir";
   const x=lado==="esq" ? 16 : area.largura-caixa.largura-16;
   const y=Math.max(16,Math.min(area.altura-caixa.altura-16,ancora.y-48));
