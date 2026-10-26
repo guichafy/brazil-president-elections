@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { desbloquearAudio, pararSom, somFeliz, somTriste } from "@/lib/sons";
+import { pararSom } from "@/lib/sons";
 import { estiloCss } from "./BrazilMap";
 
 // Ajuda aberta apenas pelo botão "Como funciona?"; nunca bloqueia uma primeira visita.
@@ -20,8 +20,6 @@ export function useOnboarding() {
   };
 }
 
-type Teste = "lula" | "bolsonaro";
-
 export default function Onboarding({
   podeFechar,
   onFechar,
@@ -29,15 +27,13 @@ export default function Onboarding({
 }: {
   podeFechar: boolean;
   onFechar: () => void;
-  onConcluir: (comSom: boolean) => void;
+  onConcluir: () => void;
 }) {
   const [passo, setPasso] = useState(0);
-  const [ouvidos, setOuvidos] = useState<ReadonlySet<Teste>>(new Set());
-  const [bloqueado, setBloqueado] = useState(false);
   const tituloId = useId();
   const painel = useRef<HTMLDivElement>(null);
 
-  // trava a rolagem da página de trás; ao sair, corta o áudio de teste (eles duram 15–22s)
+  // Mantém a leitura do guia isolada da página de análise.
   useEffect(() => {
     const antes = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -58,24 +54,11 @@ export default function Onboarding({
     setPasso(n);
   };
 
-  const testar = async (t: Teste) => {
-    // libera o áudio antes de tocar: o listener global da página pode ainda não ter terminado
-    const ok = await desbloquearAudio();
-    setBloqueado(!ok);
-    (t === "lula" ? somFeliz : somTriste)();
-    setOuvidos((s) => new Set(s).add(t));
-  };
-
-  const ouviuTudo = ouvidos.size === 2;
-  const passos: { titulo: string; conteudo: ReactNode; trava?: string }[] = [
-    { titulo: "Como explorar a apuração", conteudo: <BoasVindas /> },
+  const passos: { titulo: string; conteudo: ReactNode }[] = [
+    { titulo: "Como explorar os resultados", conteudo: <BoasVindas /> },
     { titulo: "Como ler o placar", conteudo: <ComoLerPlacar /> },
     { titulo: "Mapa e linha do tempo", conteudo: <MapaELinha /> },
-    {
-      titulo: "Ouça os dois alertas",
-      conteudo: <Sons ouvidos={ouvidos} bloqueado={bloqueado} onTestar={testar} />,
-      trava: ouviuTudo ? undefined : "Toque nos dois áudios para continuar",
-    },
+    { titulo: "Comparar turnos e eleições", conteudo: <CompararResultados /> },
     { titulo: "Tudo pronto", conteudo: <Pronto onConcluir={onConcluir} /> },
   ];
   const atual = passos[passo];
@@ -95,7 +78,7 @@ export default function Onboarding({
         <div className="bg-accent px-5 pt-3 pb-4 text-white">
           <div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wider opacity-90">
             <span>
-              Como acompanhar · passo {passo + 1} de {passos.length}
+              Como analisar · passo {passo + 1} de {passos.length}
             </span>
             {podeFechar && (
               <button type="button" onClick={onFechar} className="rounded px-1 text-base hover:bg-white/20" aria-label="Fechar guia">
@@ -124,12 +107,10 @@ export default function Onboarding({
                 ← Voltar
               </button>
             )}
-            {/* na 1ª visita dá para pular de qualquer passo; revendo, o ✕ já faz isso.
-                Pular conclui com som: o clique já serve de gesto para liberar o áudio no navegador */}
             {!ultimo && !podeFechar && (
               <button
                 type="button"
-                onClick={() => onConcluir(true)}
+                onClick={onConcluir}
                 className="text-xs font-semibold text-muted underline underline-offset-2 hover:text-foreground"
               >
                 Pular tutorial
@@ -138,11 +119,9 @@ export default function Onboarding({
           </div>
           {!ultimo && (
             <div className="flex items-center gap-3">
-              {atual.trava && <span className="text-right text-xs text-muted">{atual.trava}</span>}
               <button
                 type="button"
                 onClick={() => ir(passo + 1)}
-                disabled={!!atual.trava}
                 className="shrink-0 rounded-full bg-accent px-5 py-2 text-sm font-bold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Próximo →
@@ -198,7 +177,7 @@ function BoasVindas() {
         Explore os momentos da apuração pelo <b>slider do histórico</b>. O placar, o mapa e o gráfico acompanham sua seleção.
       </Item>
       <Item icone="👆">
-        São quatro passos rápidos para você saber ler cada parte da página e ouvir os alertas. Leva menos de um minuto.
+        Consulte o resultado por estado, percorra o histórico e compare os turnos e as eleições pelas abas de análise.
       </Item>
     </ul>
   );
@@ -328,107 +307,26 @@ function MapaELinha() {
   );
 }
 
-function Sons({
-  ouvidos,
-  bloqueado,
-  onTestar,
-}: {
-  ouvidos: ReadonlySet<Teste>;
-  bloqueado: boolean;
-  onTestar: (t: Teste) => void;
-}) {
-  const cartoes: { t: Teste; titulo: string; cor: string; regra: ReactNode }[] = [
-    {
-      t: "lula",
-      titulo: "Áudio do Lula",
-      cor: COR_LULA,
-      regra: (
-        <>
-          Durante a apuração, tocava quando <b>Lula ganhava votos e subia no %</b> e <b>Flávio caía</b>. Aqui você pode testar o áudio.
-        </>
-      ),
-    },
-    {
-      t: "bolsonaro",
-      titulo: "Áudio do Bolsonaro",
-      cor: COR_FLAVIO,
-      regra: (
-        <>
-          Durante a apuração, tocava quando <b>Lula caía no %</b> e <b>Flávio subia</b>. Aqui você pode testar o áudio.
-        </>
-      ),
-    },
-  ];
+function CompararResultados() {
   return (
-    <>
-      <p className="mb-3">Estes eram os alertas da apuração ao vivo. Os testes de som continuam disponíveis. Toque nos dois para conhecê-los:</p>
-      <div className="mb-4 grid gap-3 sm:grid-cols-2">
-        {cartoes.map((c) => {
-          const ouvido = ouvidos.has(c.t);
-          return (
-            <div key={c.t} className="overflow-hidden rounded-lg border border-border">
-              <div className="h-1" style={{ background: c.cor }} />
-              <div className="flex h-full flex-col gap-2 p-3">
-                <div className="flex items-center justify-between gap-2 font-semibold">
-                  {c.titulo}
-                  {ouvido && <span className="text-xs text-green-700">✓ ouvido</span>}
-                </div>
-                <p className="flex-1 text-xs text-muted">{c.regra}</p>
-                <button
-                  type="button"
-                  onClick={() => onTestar(c.t)}
-                  aria-label={`${ouvido ? "Ouvir de novo o" : "Ouvir o"} ${c.titulo.toLowerCase()}`}
-                  className="rounded-full px-3 py-2 text-sm font-bold text-white hover:opacity-90"
-                  style={{ background: c.cor }}
-                >
-                  {ouvido ? "↻ Ouvir de novo" : "▶ Ouvir"}
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {bloqueado && (
-        <p className="mb-3 rounded-lg border border-accent/40 bg-accent/10 p-2 text-xs">
-          O navegador não liberou o som. Você pode continuar e ativá-lo depois pelo botão 🔔 no topo da página.
-        </p>
-      )}
-      <ul className="space-y-3">
-        <Item icone="🤐">Os alertas acompanhavam só o Brasil. Com o resultado encerrado, não há novos alertas de variação.</Item>
-        <Item icone="💬">
-          A comemoração da vitória continua disponível, assim como os botões de teste dos áudios no topo da página.
-        </Item>
-        <Item icone="📱">No iPhone, desligue o modo silencioso (a chave na lateral) e aumente o volume.</Item>
-      </ul>
-    </>
+    <ul className="space-y-3">
+      <Item icone="📈"><b>Evolução:</b> acompanhe os percentuais dos candidatos ao longo da apuração, no Brasil ou no estado selecionado.</Item>
+      <Item icone="🗳️"><b>1ºT × 2ºT:</b> compare a votação nacional dos finalistas nos dois turnos de 2026.</Item>
+      <Item icone="📊"><b>2022 × 2026:</b> compare as disputas presidenciais de segundo turno. Os nomes na legenda identificam os candidatos de cada eleição.</Item>
+      <Item icone="🔎">O eixo horizontal usa o <b>percentual de urnas apuradas</b>, para comparar etapas equivalentes. Nas comparações, linhas contínuas mostram o 2º turno de 2026 e tracejadas mostram a referência.</Item>
+      <Item icone="🇧🇷">As comparações entre turnos e anos são nacionais. Ao escolher uma dessas abas, a seleção volta para Brasil.</Item>
+    </ul>
   );
 }
 
-function Pronto({ onConcluir }: { onConcluir: (comSom: boolean) => void }) {
+function Pronto({ onConcluir }: { onConcluir: () => void }) {
   return (
     <>
-      <p className="mb-4">Como você quer explorar o resultado?</p>
-      <div className="mb-4 grid gap-2">
-        <button
-          type="button"
-          onClick={() => onConcluir(true)}
-          className="rounded-xl bg-accent px-4 py-3 text-left font-bold text-white hover:bg-accent-strong"
-        >
-          🔔 Explorar com som
-          <span className="block text-xs font-normal opacity-90">Comemoração e testes dos áudios da apuração</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onConcluir(false)}
-          className="rounded-xl border border-border px-4 py-3 text-left font-bold hover:bg-track"
-        >
-          🔕 Explorar sem som
-          <span className="block text-xs font-normal text-muted">Comemoração apenas na tela</span>
-        </button>
-      </div>
+      <p className="mb-4">A página fica disponível para consultar, comparar e conferir os resultados. Use a barra do histórico para revisar cada etapa da apuração.</p>
+      <button type="button" onClick={onConcluir} className="mb-4 w-full rounded-xl bg-accent px-4 py-3 text-left font-bold text-white hover:bg-accent-strong">Explorar os dados</button>
       <ul className="space-y-3 text-muted">
-        <Item icone="🔔">Dá para mudar a qualquer momento no botão de som do topo. 🙂 e 🙁 ao lado dele repetem os áudios.</Item>
-        <Item icone="❓">Para rever este guia, use &quot;Como funciona?&quot; no topo da página.</Item>
+        <Item icone="▶">Para assistir novamente ao timelapse com música, use <b>Rever apresentação</b> e depois <b>Iniciar com música</b>.</Item>
+        <Item icone="❓">Este guia continua disponível em <b>Como funciona?</b>, no topo da página.</Item>
       </ul>
     </>
   );

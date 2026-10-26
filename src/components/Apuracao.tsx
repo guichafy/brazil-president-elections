@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { assetPath } from "@/lib/assets";
 import { fmtInt, fmtPct } from "@/lib/format";
 import { aplicarReplay } from "@/lib/replay";
 import {pararSom} from "@/lib/sons";
 import type { ApuracaoResponse, ComparacaoResponse, ReplayResponse, ResultadoAbrangencia, TimelineResponse } from "@/lib/types";
 import { UF_LIST, scopeName, type Scope } from "@/lib/ufs";
-import { AvisoHumor, BotaoSom, useAlertaSom } from "./AlertaSom";
+import { AvisoHumor, useAlertaSom } from "./AlertaSom";
 import AvisoVitoria from "./AvisoVitoria";
 import BrazilMap, { DecisaoInfo, estiloCss, ufEstilo, type MapMode } from "./BrazilMap";
 import CandidateList from "./CandidateList";
@@ -59,15 +59,28 @@ export default function Apuracao({
   const [scope, setScope] = useState<Scope>("br");
   const [destaque, setDestaque] = useState<string | null>(null);
   const [replay, setReplay] = useState<{ dados: ReplayResponse; indice: number } | null>(null);
+  const [vista, setVista] = useState<Vista>("evolucao");
+  const tituloAnalise = useRef<HTMLHeadingElement>(null);
+  const painelId = useId();
+  const abrirAnalise = useCallback(() => {
+    setReplay(null);
+    setScope("br");
+    setVista("evolucao");
+    requestAnimationFrame(() => {
+      tituloAnalise.current?.focus({ preventScroll:true });
+      window.scrollTo({ top:0, behavior:"instant" });
+    });
+  }, []);
+  const selecionarScope = (s: Scope) => { setScope(s); setVista("evolucao"); };
+  const selecionarVista = (v: Vista) => { setVista(v); if (v !== "evolucao") setScope("br"); };
   const d = useMemo(() => replay ? aplicarReplay(resultadoFinal, replay.dados, replay.indice) : resultadoFinal, [resultadoFinal, replay]);
   const historicoAtivo = !!replay && replay.indice < replay.dados.pontos.length - 1;
 
   const guia = useOnboarding();
   // com o guia aberto, os alertas de verdade esperam, para não se misturar aos testes de som
-  const som = useAlertaSom(guia.aberto, resultadoFinal.nacional);
-  const controleReplay = <ReplayControls scope={scope} bloqueado={!!som.vitoria||guia.aberto} somAtivo={som.ativo} indice={replay?.indice ?? null} onChange={(dados, indice) => setReplay({ dados, indice })} />;
+  const som = useAlertaSom(guia.aberto, resultadoFinal.nacional, abrirAnalise);
+  const controleReplay = <ReplayControls scope={scope} bloqueado={!!som.vitoria||guia.aberto} somAtivo={false} indice={replay?.indice ?? null} onChange={(dados, indice) => setReplay({ dados, indice })} />;
   const timeline = useTimeline(scope, timelineInicial);
-  const [vista, setVista] = useState<Vista>("evolucao");
 
   // O resultado é fixo; fechar o tutorial também precisa liberar a comemoração.
   const onNacional = som.onNacional;
@@ -92,25 +105,24 @@ export default function Apuracao({
   // no 2º turno, progresso + projeção viram um placar nacional único
   const comPlacar = segundoTurno && d?.nacional?.candidatos.length === 2;
   const abas: { value: Vista; label: string }[] = [{ value: "evolucao", label: "Evolução" }];
-  if (scope === "br" && segundoTurno && comparacao.primeiroTurno) abas.push({ value: "turnos", label: "1ºT x 2ºT" });
-  if (scope === "br" && segundoTurno && comparacao.ano2022) abas.push({ value: "2022", label: "2022 x 2026" });
+  if (segundoTurno && comparacao.primeiroTurno) abas.push({ value: "turnos", label: "1ºT × 2ºT" });
+  if (segundoTurno && comparacao.ano2022) abas.push({ value: "2022", label: "2022 × 2026" });
   const vistaAtiva = abas.some((a) => a.value === vista) ? vista : "evolucao";
   const referencia =
     vistaAtiva === "turnos" ? comparacao.primeiroTurno : vistaAtiva === "2022" ? comparacao.ano2022 : null;
 
   const conteudoMapa = d ? (
     <>
-      <BrazilMap ufs={d.ufs} selected={scope} onSelect={setScope} mode={mapMode} />
+      <BrazilMap ufs={d.ufs} selected={scope} onSelect={selecionarScope} mode={mapMode} />
       {mapMode.tipo === "lider" && <Legenda d={d} />}
-      <UfGrid d={d} selected={scope} onSelect={setScope} mode={mapMode} />
+      <UfGrid d={d} selected={scope} onSelect={selecionarScope} mode={mapMode} />
     </>
   ) : (
     <Skeleton />
   );
 
   const conteudoLinha = (
-    <>
-      {abas.length > 1 && <Abas value={vistaAtiva} onChange={setVista} options={abas} />}
+    <div role="tabpanel" id={painelId} aria-labelledby={`${painelId}-${vistaAtiva}`}>
       {atual && timeline.data && timeline.data.scope === scope ? (
         referencia ? (
           <Comparacao
@@ -131,7 +143,7 @@ export default function Apuracao({
       ) : (
         <Skeleton />
       )}
-    </>
+    </div>
   );
 
   return (
@@ -141,8 +153,7 @@ export default function Apuracao({
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3">
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider opacity-80">Eleições 2026 · {d?.nacional?.turno ?? "1"}º turno</div>
-              <h1 className="text-xl font-bold sm:text-2xl">Apuração para Presidente</h1>
-              <Item9 />
+              <h1 ref={tituloAnalise} tabIndex={-1} className="text-xl font-bold outline-none sm:text-2xl">Análise da eleição presidencial</h1>
             </div>
             <div className="flex flex-col items-end gap-2">
               <div className="flex items-center gap-2">
@@ -153,7 +164,7 @@ export default function Apuracao({
                 >
                   ❓ Como funciona?
                 </button>
-                <BotaoSom ativo={som.ativo} liberado={som.liberado} alternar={som.alternar} testarVitoria={som.testarVitoria} testarSom={som.testarSom} />
+                <button type="button" onClick={som.testarVitoria} className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-semibold text-accent hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Rever apresentação</button>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="inline-block size-2 rounded-full bg-white" />
@@ -184,8 +195,8 @@ export default function Apuracao({
             <section className="mt-5 rounded-xl bg-surface p-4 shadow-sm">
               <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <h2 className="text-lg font-bold">Apuração por estado · {scopeName(scope)}</h2>
-                  <p className="text-xs text-muted">Clique num estado para ver o placar e a linha do tempo dele</p>
+                  <h2 className="text-lg font-bold">Evolução e comparações</h2>
+                  <p className="mt-1 text-sm text-muted">Consulte a evolução dos votos ou compare os resultados entre turnos e eleições.</p>
                 </div>
                 {scope !== "br" && (
                   <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
@@ -193,6 +204,8 @@ export default function Apuracao({
                   </button>
                 )}
               </div>
+              <Abas value={vistaAtiva} onChange={selecionarVista} options={abas} painelId={painelId} />
+              <p className="mb-5 text-xs text-muted">As comparações entre turnos e anos usam os dados do Brasil. Selecione um estado no mapa para consultar a evolução dele.</p>
               <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
                 <div>
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -218,8 +231,8 @@ export default function Apuracao({
                   )}
                   {conteudoMapa}
                 </div>
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold">Linha do tempo · % dos votos válidos</h3>
+                <div className="order-first min-w-0 lg:order-last">
+                  <h3 className="mb-2 text-sm font-semibold">{scopeName(scope)} · % dos votos válidos</h3>
                   {conteudoLinha}
                 </div>
               </div>
@@ -277,13 +290,13 @@ export default function Apuracao({
                   <h2 className="text-lg font-bold">Linha do tempo da apuração · {scopeName(scope)}</h2>
                   <p className="text-xs text-muted">% dos votos válidos de cada candidato conforme as seções são totalizadas</p>
                 </div>
+                <Abas value={vistaAtiva} onChange={selecionarVista} options={abas} painelId={painelId} />
                 {conteudoLinha}
               </section>
             </>
           )}
 
           <footer className="mt-6 text-center text-xs text-muted">
-            <p className="mb-1 font-semibold text-foreground">Acompanhamento dedicado ao grupo do Zap Item 9</p>
             Fonte: Tribunal Superior Eleitoral (resultados.tse.jus.br) · eleição {d.eleicao} · resultado e histórico preservados
           </footer>
         </main>
@@ -308,44 +321,41 @@ export default function Apuracao({
         <Onboarding
           podeFechar={guia.revendo}
           onFechar={guia.fechar}
-          onConcluir={(comSom) => {
-            void som.definir(comSom);
-            guia.concluir();
-          }}
+          onConcluir={guia.concluir}
         />
       )}
     </>
   );
 }
 
-function Abas({ value, onChange, options }: { value: Vista; onChange: (v: Vista) => void; options: { value: Vista; label: string }[] }) {
+function Abas({ value, onChange, options, painelId }: { value: Vista; onChange: (v: Vista) => void; options: { value: Vista; label: string }[]; painelId:string }) {
   return (
-    <div role="tablist" className="mb-4 flex justify-center gap-2 border-b border-border">
+    <div role="tablist" aria-label="Análises da eleição" className="mb-4 flex justify-center gap-1 border-b border-border sm:gap-2">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           role="tab"
+          id={`${painelId}-${o.value}`}
+          aria-controls={painelId}
+          tabIndex={value === o.value ? 0 : -1}
           aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`-mb-px border-b-2 px-3 py-2 text-sm whitespace-nowrap transition-colors sm:px-6 sm:text-base ${
+          onKeyDown={e => {
+            const i = options.findIndex(option => option.value === o.value);
+            const proximo = { ArrowRight:(i+1)%options.length, ArrowLeft:(i+options.length-1)%options.length, Home:0, End:options.length-1 }[e.key];
+            if (proximo === undefined) return;
+            e.preventDefault();
+            onChange(options[proximo].value);
+            e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[proximo]?.focus();
+          }}
+          className={`-mb-px border-b-2 px-2 py-2 text-sm whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-accent sm:px-6 sm:text-base ${
             value === o.value ? "border-accent font-bold text-accent" : "border-transparent text-muted hover:text-foreground"
           }`}
         >
           {o.label}
         </button>
       ))}
-    </div>
-  );
-}
-
-function Item9() {
-  return (
-    <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold">
-      <svg viewBox="0 0 24 24" className="size-3.5 fill-current" aria-hidden="true">
-        <path d="M12 3C6.98 3 3 6.73 3 11.33c0 2.1.83 4.02 2.2 5.48L4.5 21l4.37-1.85c.98.3 2.03.47 3.13.47 5.02 0 9-3.73 9-8.29S17.02 3 12 3Z" />
-      </svg>
-      Acompanhamento dedicado · Grupo do Zap <span className="font-bold">Item 9</span>
     </div>
   );
 }

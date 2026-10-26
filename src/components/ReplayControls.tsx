@@ -55,7 +55,7 @@ export default function ReplayControls({ indice, scope, onChange,bloqueado=false
         className="h-7 w-full cursor-pointer accent-[var(--accent)] disabled:cursor-wait"
       />
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-        <button type="button" disabled={!dados||bloqueado} onClick={()=>void player.alternar()} className="rounded-full bg-accent px-4 py-2 font-semibold text-white disabled:opacity-40">{player.tocando ? "⏸ Pausar replay" : "▶ Play da apuração"}</button>
+        <button type="button" disabled={!dados||bloqueado} onClick={()=>void player.alternar()} className="rounded-full bg-accent px-4 py-2 font-semibold text-white disabled:opacity-40">{player.tocando ? "⏸ Pausar evolução" : "▶ Reproduzir evolução"}</button>
         <output className="tabular" aria-live="polite">{!dados ? "Carregando histórico…" : final ? "Arraste a barra de apuração para movimentar a timeline" : `Histórico · ${descricao}`}</output>
         {!final && <button type="button" onClick={() => selecionar(max)} className="font-semibold text-accent hover:underline">Voltar ao resultado final</button>}
       </div>

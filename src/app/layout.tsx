@@ -11,8 +11,8 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Apuração 2026 · Presidente",
-  description: "Resultado e histórico da apuração presidencial de 2026, com dados do TSE preservados para o grupo do Zap Item 9.",
+  title: "Análise da eleição presidencial · 2026",
+  description: "Consulte os resultados da eleição presidencial de 2026, explore a evolução da apuração e compare turnos e eleições com os dados preservados do TSE.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

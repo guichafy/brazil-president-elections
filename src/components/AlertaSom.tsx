@@ -29,7 +29,7 @@ function vitoriaPronta(nacional: ResultadoAbrangencia | null, teste = false, id 
  * Avisa no máximo uma vez a cada 5 minutos: nada fica na fila para depois.
  * A vitória do Lula fura esse intervalo, comemora uma vez só (a pausa só adia) e encerra os avisos de sobe e desce.
  */
-export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangencia | null = null) {
+export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangencia | null = null, aoFecharVitoria?: () => void) {
   // ligado por padrão; o navegador só libera o áudio no 1º gesto do usuário na página
   const [ativo, setAtivo] = useState(true);
   const [liberado, setLiberado] = useState(false);
@@ -90,7 +90,8 @@ export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangen
     pedidoVitoria.current++;
     pararSom();
     setVitoria(null);
-  }, []);
+    aoFecharVitoria?.();
+  }, [aoFecharVitoria]);
 
   /** Inicia som e filme juntos, sempre com 90s, descartando pedidos cancelados. */
   const ouvirVitoria = useCallback(async () => {
