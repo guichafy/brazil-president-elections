@@ -4,12 +4,12 @@
 
 Resultado, replay e análise da eleição presidencial brasileira de 2026, com os dados oficiais do TSE preservados e publicados como site estático.
 
-[![Validar e publicar no GitHub Pages](https://github.com/guichafy/brazil-president-elections/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/guichafy/brazil-president-elections/actions/workflows/deploy-pages.yml)
+[![Validar e publicar no GitHub Pages](https://github.com/guichafy/brazilian-presidential-elections/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/guichafy/brazilian-presidential-elections/actions/workflows/deploy-pages.yml)
 [![Node.js ≥ 24](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](LICENSE)
 
-**[Acessar o site →](https://guichafy.github.io/brazil-president-elections/)**
+**[Acessar o site →](https://guichafy.github.io/brazilian-presidential-elections/)**
 
 </div>
 
@@ -68,8 +68,8 @@ Resultado, replay e análise da eleição presidencial brasileira de 2026, com o
 ### Instalação
 
 ```bash
-git clone https://github.com/guichafy/brazil-president-elections.git
-cd brazil-president-elections
+git clone https://github.com/guichafy/brazilian-presidential-elections.git
+cd brazilian-presidential-elections
 npm ci
 npm run dev
 ```
@@ -89,9 +89,9 @@ O build gera `out/`, que pode ser servido por qualquer servidor estático. O pre
 Para simular a URL de projeto do Pages (`/<repositorio>/`), use o mesmo prefixo no build e no preview:
 
 ```bash
-NEXT_PUBLIC_BASE_PATH=/brazil-president-elections npm run build
-NEXT_PUBLIC_BASE_PATH=/brazil-president-elections npm run verify:export
-NEXT_PUBLIC_BASE_PATH=/brazil-president-elections npm run preview
+NEXT_PUBLIC_BASE_PATH=/brazilian-presidential-elections npm run build
+NEXT_PUBLIC_BASE_PATH=/brazilian-presidential-elections npm run verify:export
+NEXT_PUBLIC_BASE_PATH=/brazilian-presidential-elections npm run preview
 ```
 
 ### Variáveis de ambiente

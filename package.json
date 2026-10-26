@@ -4,8 +4,8 @@
   "private": true,
   "description": "Resultado, replay e análise da eleição presidencial brasileira de 2026 com dados oficiais do TSE, exportados como site estático.",
   "license": "MIT",
-  "homepage": "https://guichafy.github.io/brazil-president-elections/",
-  "repository": { "type": "git", "url": "git+https://github.com/guichafy/brazil-president-elections.git" },
+  "homepage": "https://guichafy.github.io/brazilian-presidential-elections/",
+  "repository": { "type": "git", "url": "git+https://github.com/guichafy/brazilian-presidential-elections.git" },
   "type": "module",
   "engines": { "node": ">=24" },
   "scripts": {
