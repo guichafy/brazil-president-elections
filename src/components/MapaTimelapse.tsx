@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { geoIdentity, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import brasil from "@/data/brasil-ufs.json";
-import { atualizacoesEstaduais, fatiasVotos, interpolarFatias, MAPA_VIEWBOX, posicionarAtualizacoes, setorPizza, marcadoresSemColisao, type AtualizacaoEstadual } from "@/lib/mapa-timelapse";
+import { atualizacoesEstaduais, fatiasVotos, interpolarFatias, visaoMapaTimelapse, posicionarAtualizacoes, setorPizza, marcadoresSemColisao, type AtualizacaoEstadual } from "@/lib/mapa-timelapse";
 import { fmtInt, fmtPct } from "@/lib/format";
 import { UFS, scopeName, type Scope, type UF } from "@/lib/ufs";
 import type { ApuracaoResponse } from "@/lib/types";
@@ -86,13 +86,17 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
   const atualizados = new Set(mudancas.map(m => m.uf));
   const candidatos = apuracao.nacional?.candidatos.filter(c=>c.numero==="13"||c.numero==="22")??[];
   const detalhe = scope==="zz" ? apuracao.exterior : scope==="br" ? null : apuracao.ufs[scope];
+  const visao = visaoMapaTimelapse(shapes,scope);
+  const box = visao.viewBox;
+  const atualizacaoSelecionada = visao.focalizado ? reacoes[scope as UF] : undefined;
   const selecionar = (uf:Scope) => onSelect(scope===uf ? "br" : uf);
-  const limite = medidas.largura >= 1040 && medidas.altura >= 420 ? 3 : medidas.largura >= 740 ? 2 : 1;
+  const voltarBrasil = () => { onSelect("br"); seletor.current?.focus(); };
+  const limite = visao.focalizado ? 0 : medidas.largura >= 1040 && medidas.altura >= 420 ? 3 : medidas.largura >= 740 ? 2 : 1;
   const duracaoChamada = medidas.largura >= 740 ? 6000 : 3000;
   const larguraChamada = Math.max(0, Math.min(340, medidas.largura - 24));
   const candidatas=useMemo(()=>Object.values(reacoes).filter(r=>r.candidatos.some(c=>c.deltaVotos!==0)),[reacoes]);
   const grupo = useChamadasFixas(candidatas,fonte===apuracao.ufs,limite,duracaoChamada,pausado,revisaoNavegacao);
-  const chamadas = posicionarAtualizacoes(grupo.map(r=>shapes.find(s=>s.uf===r.uf)!), medidas, {largura:larguraChamada,altura:196}, {mapa:medidas.mapa,evitar:shapes.map(s=>s.limites)});
+  const chamadas = visao.focalizado ? [] : posicionarAtualizacoes(grupo.map(r=>shapes.find(s=>s.uf===r.uf)!), medidas, {largura:larguraChamada,altura:196}, {mapa:medidas.mapa,evitar:shapes.map(s=>s.limites)});
 
   useEffect(() => {
     const medir = () => {
@@ -109,34 +113,38 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
   },[]);
 
   return (
-    <section aria-label="Explorar a votação por estado" className={styles.exploracao} data-detalhe={!!detalhe}>
+    <section aria-label="Explorar a votação por estado" className={styles.exploracao} data-detalhe={!!detalhe} data-estado={visao.focalizado}>
       <div className={styles.cabecalho}>
         <div>
-          <h3 className="text-base font-bold sm:text-lg">A apuração pelo Brasil</h3>
-          <p id={`${id}-instrucao`} className="text-white/65">Chamadas fixas para leitura; mapa e música continuam.</p>
+          <h3 className="text-base font-bold sm:text-lg">{visao.focalizado ? `A apuração em ${scopeName(scope)}` : "A apuração pelo Brasil"}</h3>
+          <p id={`${id}-instrucao`} className="text-white/65">{visao.focalizado ? "Acompanhe os votos deste estado ao longo do timelapse." : "Chamadas fixas para leitura; mapa e música continuam."}</p>
         </div>
+        <div className={styles.acoes}>
+        {scope!=="br" && <button type="button" onClick={voltarBrasil} className={styles.voltar}>← Voltar ao Brasil</button>}
         <label className={styles.seletor}>
           <span className="sr-only">Escolher estado</span>
           <select ref={seletor} value={scope} onChange={e=>onSelect(e.target.value as Scope)}>
-            <option value="br">Escolher estado</option>
+            <option value="br">Brasil · todos os estados</option>
             {Object.keys(UFS).map(uf=><option key={uf} value={uf}>{UFS[uf as UF]}</option>)}
             <option value="zz">Exterior</option>
           </select>
         </label>
+        </div>
       </div>
 
       <div className={styles.quadro}>
-        <div ref={area} role="region" aria-label="Mapa do Brasil com votos por estado" aria-describedby={`${id}-instrucao`} className={styles.area}>
+        <div ref={area} role="region" aria-label={visao.focalizado ? `Mapa de ${scopeName(scope)}` : "Mapa do Brasil com votos por estado"} aria-describedby={`${id}-instrucao`} className={styles.area}>
           {suspense && <AnimacaoSuspense />}
-          <svg ref={desenho} viewBox={`${MAPA_VIEWBOX.x} ${MAPA_VIEWBOX.y} ${MAPA_VIEWBOX.largura} ${MAPA_VIEWBOX.altura}`} preserveAspectRatio="xMidYMid meet" className={styles.mapa} role="group" aria-label="Mapa animado da votação proporcional por estado">
+          <svg ref={desenho} viewBox={`${box.x} ${box.y} ${box.largura} ${box.altura}`} preserveAspectRatio="xMidYMid meet" className={styles.mapa} role="group" aria-label={visao.focalizado ? `Mapa animado de ${scopeName(scope)}` : "Mapa animado da votação proporcional por estado"}>
             <defs>
-              {shapes.map(s=><clipPath key={s.uf} id={`${id}-uf-${s.uf}`}><path d={s.d}/></clipPath>)}
+              {visao.formas.map(s=><clipPath key={s.uf} id={`${id}-uf-${s.uf}`}><path d={s.d}/></clipPath>)}
             </defs>
 
-            {shapes.map((s, i)=>{
+            {visao.formas.map(s=>{
+              const i=shapes.indexOf(s);
               const r=apuracao.ufs[s.uf], fatias=fatiasAnimadas[i], ativo=scope===s.uf;
               const descricao=`${UFS[s.uf]}: ${fmtPct(r?.pctTotalizado??0)} apurado; ${candidatos.map(c=>{const d=r?.candidatos.find(x=>x.numero===c.numero);return `${c.nome}, ${fmtInt(d?.votos??0)} votos, ${fmtPct(d?.pct??0)} dos válidos`;}).join("; ")}`;
-              return <g key={s.uf} role="button" tabIndex={0} aria-label={descricao} aria-pressed={ativo} aria-controls={ativo ? `${id}-detalhe` : undefined} className={styles.estado} data-selecionado={ativo} data-atualizado={atualizados.has(s.uf)} onClick={()=>selecionar(s.uf)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selecionar(s.uf);}}}>
+              return <g key={s.uf} role="button" tabIndex={0} aria-label={descricao} aria-pressed={ativo} aria-controls={ativo ? `${id}-detalhe` : undefined} className={styles.estado} data-uf={s.uf} data-selecionado={ativo} data-atualizado={atualizados.has(s.uf)} onClick={()=>selecionar(s.uf)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selecionar(s.uf);}}}>
                 <g clipPath={`url(#${id}-uf-${s.uf})`}>
                   <path d={s.d} fill="#7f9489"/>
                   {fatias.map(f=><path key={f.numero} d={setorPizza(s.x,s.y,s.raio,f.inicio,f.fracao)} fill={cores[f.numero]}/>)}
@@ -147,7 +155,7 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
               </g>;
             })}
 
-            {marcadores.map((s, i)=>{
+            {!visao.focalizado && marcadores.map((s, i)=>{
               const fatias=fatiasAnimadas[i], ativo=scope===s.uf;
               return <g key={`pizza-${s.uf}`} transform={`translate(${s.x},${s.y})`} pointerEvents="none" aria-hidden="true">
                 <circle r={s.raio+1} fill={ativo ? "#FFDF00" : "#d4e8dc"}/>
@@ -180,7 +188,7 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
         {detalhe && <div id={`${id}-detalhe`} role="region" aria-label={`Detalhes de ${scopeName(scope)}`} className={styles.detalhe}>
           <div className="flex items-start justify-between gap-3">
             <div><p className="text-xs text-white/60">{scope==="zz" ? "Votos no exterior" : scope.toUpperCase()}</p><h4 className="mt-0.5 text-lg font-bold">{scopeName(scope)}</h4></div>
-            <button type="button" aria-label="Fechar detalhes do estado" onClick={()=>{onSelect("br");seletor.current?.focus();}} className={styles.fechar}>✕</button>
+            <button type="button" aria-label="Fechar detalhes do estado" onClick={voltarBrasil} className={styles.fechar}>✕</button>
           </div>
           <div className="mt-3">
             <div className="flex justify-between text-xs text-white/75"><span>Urnas apuradas</span><strong className="tabular text-[#FFDF00]">{fmtPct(detalhe.pctTotalizado)}</strong></div>
@@ -189,15 +197,16 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
           <div className="mt-4 space-y-3">
             {["13","22"].map(n=>{
               const c=detalhe.candidatos.find(c=>c.numero===n), foto=c?.foto??candidatos.find(c=>c.numero===n)?.foto;
+              const mudanca=atualizacaoSelecionada?.candidatos.find(c=>c.numero===n);
               return <div key={n} className={styles.candidato}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {foto && <img src={foto} alt="" className="size-9 rounded-full object-cover" style={{border:`2px solid ${cores[n]}`}}/>}
-                <div className="min-w-0 flex-1"><p className="text-xs font-semibold">{n==="13" ? "Lula" : "Flávio Bolsonaro"}</p><p className="mt-1 text-xs text-white/65 tabular">{fmtInt(c?.votos??0)} votos</p></div>
+                <div className="min-w-0 flex-1"><p className="text-xs font-semibold">{n==="13" ? "Lula" : "Flávio Bolsonaro"}</p><p className="mt-1 text-xs text-white/65 tabular">{fmtInt(c?.votos??0)} votos</p>{mudanca && <p className={styles.variacaoSelecionada}>Antes: {fmtInt(mudanca.antes.votos)} · {variacao(mudanca.deltaVotos)} votos</p>}</div>
                 <strong className="text-lg font-bold tabular" style={{color:n==="13" ? "#ffb6bd" : "#c5c9ff"}}>{fmtPct(c?.pct??0)}</strong>
               </div>;
             })}
           </div>
-          <p className="mt-4 border-t border-white/15 pt-3 text-[11px] text-white/65 tabular">{fmtInt(detalhe.validos)} votos válidos neste momento.</p>
+          <p className="mt-4 border-t border-white/15 pt-3 text-[11px] text-white/65 tabular">{fmtInt(detalhe.validos)} votos válidos neste momento.<br/>Registro das {horario.format(new Date(detalhe.isoDataHora))} em Brasília.</p>
         </div>}
       </div>
       <div className={styles.rodape}>

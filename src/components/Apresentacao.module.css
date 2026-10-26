@@ -125,6 +125,8 @@
 }
 
 @media (max-width: 699px) {
+  .apresentacao:has([data-estado="true"]) { height: auto; }
+  .filme:has([data-estado="true"]) { flex: none; }
   .dialogo:has([data-clima="suspense"]) .cabecalho > div { grid-column: 1; }
   .dialogo:has([data-clima="suspense"]) .cabecalho::before { display: none; }
   .cabecalho { grid-template-columns: minmax(0, 1fr) 112px; gap: 8px; padding-inline: 0 32px; }

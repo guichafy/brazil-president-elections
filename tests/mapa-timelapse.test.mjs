@@ -3,6 +3,24 @@ import { test } from "node:test";
 import { fatiasVotos, setorPizza, marcadoresSemColisao, posicionarChamada } from "../src/lib/mapa-timelapse.ts";
 import * as mapa from "../src/lib/mapa-timelapse.ts";
 
+test("state focus isolates its geometry and fits its own bounds without changing the Brazil view", () => {
+  assert.equal(typeof mapa.visaoMapaTimelapse,"function");
+  const formas=[{uf:"sp",limites:{x:700,y:600,largura:120,altura:100}},{uf:"df",limites:{x:692,y:620,largura:2,altura:3}}];
+  const sp=mapa.visaoMapaTimelapse(formas,"sp");
+  assert.deepEqual(sp.formas.map(f=>f.uf),["sp"]);
+  assert.equal(sp.formas[0],formas[0],"Preservar a identidade mantém as fatias ligadas ao estado correto");
+  assert.deepEqual(sp.viewBox,{x:688,y:588,largura:144,altura:124});
+  assert.equal(sp.focalizado,true);
+  const df=mapa.visaoMapaTimelapse(formas,"df");
+  assert.deepEqual(df.viewBox,{x:684,y:612,largura:18,altura:19});
+  for(const scope of ["br","zz","desconhecido"]){
+    const visao=mapa.visaoMapaTimelapse(formas,scope);
+    assert.deepEqual(visao.formas,formas);
+    assert.deepEqual(visao.viewBox,{x:250,y:50,largura:740,altura:795});
+    assert.equal(visao.focalizado,false);
+  }
+});
+
 test("visible callouts keep an immutable vote snapshot until the next group is captured", () => {
   assert.equal(typeof mapa.capturarGrupoAtualizacoes,"function","Falta guardar os votos da chamada enquanto ela está visível");
   const recentes=[{uf:"sp",antesApurado:10,agoraApurado:20,deltaValidos:50,candidatos:[{numero:"13",antes:{votos:100,pct:50},agora:{votos:120,pct:48},deltaVotos:20},{numero:"22",antes:{votos:100,pct:50},agora:{votos:130,pct:52},deltaVotos:30}]}];

@@ -64,6 +64,19 @@ export const MAPA_VIEWBOX = { x:250, y:50, largura:740, altura:795 };
 
 type Retangulo = { x:number; y:number; largura:number; altura:number };
 
+/** Isola a UF escolhida, preservando sua identidade e reservando margem para o contorno. */
+export function visaoMapaTimelapse<T extends {uf:string;limites:Retangulo}>(formas:T[], scope:string) {
+  const estado = formas.find(f => f.uf === scope);
+  if (!estado) return {formas,viewBox:MAPA_VIEWBOX,focalizado:false};
+  const {x,y,largura,altura} = estado.limites;
+  const margem = Math.max(8,Math.max(largura,altura)*0.1);
+  return {
+    formas:[estado],
+    viewBox:{x:x-margem,y:y-margem,largura:largura+2*margem,altura:altura+2*margem},
+    focalizado:true,
+  };
+}
+
 function ancoraNoMapa(ponto:{x:number;y:number}, area:{largura:number;altura:number}, desenho?:Retangulo) {
   const mapa = desenho ?? {x:0,y:0,...area};
   const escala = Math.min(mapa.largura / MAPA_VIEWBOX.largura, mapa.altura / MAPA_VIEWBOX.altura);

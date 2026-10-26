@@ -53,6 +53,7 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
   }, [lider, encerrada, vitoria.semSom]);
   const restante = Math.ceil((DURACAO_COMEMORACAO_MS - decorrido) / 1000);
   const carregando=iniciadoEm===null&&!pausado;
+  const resultadoExibido = scope==="br" ? nacional : scope==="zz" ? atual?.exterior : atual?.ufs[scope];
 
   if (!dados || !nacional || !roteiro) return (
     <div className="flex min-h-80 items-center justify-center text-center">
@@ -62,13 +63,13 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
   return (
     <section aria-label="Timelapse da apuração" data-decorrido-ms={Math.floor(decorrido)} data-clima={clima} className={styles.filme}>
       <div className={styles.resumo}>
-        <CandidatoCompacto candidato={nacional.candidatos.find(c=>c.numero==="13")} />
+        <CandidatoCompacto candidato={resultadoExibido?.candidatos.find(c=>c.numero==="13")} />
         <div className={styles.marco}>
-          <h2 aria-live="polite">{marco?.titulo}</h2>
-          <p>{hora.format(new Date(dados.pontos[indice].t))} em Brasília · {fmtPct(nacional.pctTotalizado)} das urnas</p>
+          <h2 aria-live="polite">{scope==="br" ? marco?.titulo : scopeName(scope)}</h2>
+          <p>{hora.format(new Date(resultadoExibido?.isoDataHora ?? dados.pontos[indice].t))} em Brasília · {fmtPct(resultadoExibido?.pctTotalizado ?? 0)} das urnas{scope!=="br" && " nesta seleção"}</p>
           <output className="tabular">{Math.floor(restante/60)}:{String(restante%60).padStart(2,"0")} restantes</output>
         </div>
-        <CandidatoCompacto candidato={nacional.candidatos.find(c=>c.numero==="22")} direita />
+        <CandidatoCompacto candidato={resultadoExibido?.candidatos.find(c=>c.numero==="22")} direita />
       </div>
 
       <div className={styles.controles} aria-label="Controles do timelapse">

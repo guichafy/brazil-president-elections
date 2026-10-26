@@ -17,6 +17,10 @@
 
 .cabecalho h3 { font-size: 14px; line-height: 18px; }
 .cabecalho p { font-size: 10px; line-height: 13px; }
+.acoes { display: flex; align-items: center; gap: 10px; }
+.voltar { border: 1px solid #ffffff40; border-radius: 8px; padding: 5px 10px; font-size: 12px; color: white; cursor: pointer; }
+.voltar:hover { background: #ffffff15; }
+.voltar:focus-visible { outline: 2px solid #ffdf00; outline-offset: 3px; }
 
 .seletor select {
   max-width: 100%;
@@ -242,7 +246,12 @@
 }
 
 .rodape > div, .rodape button { font-size: 10px; line-height: 13px; }
-.exploracao[data-detalhe="true"] { min-height: calc(100dvh + 280px); }
+.exploracao[data-detalhe="true"][data-estado="false"] { min-height: calc(100dvh + 280px); }
+.exploracao[data-estado="true"] .quadro { flex-direction: row; }
+.exploracao[data-estado="true"] .area { min-width: 0; min-height: 0; }
+.exploracao[data-estado="true"] .mapa { left: 0; width: 100%; height: 100%; padding: 12px; }
+.exploracao[data-estado="true"] .detalhe { width: 360px; max-width: 44%; margin: 12px; overflow-y: auto; }
+.variacaoSelecionada { margin-top: 4px; font-size: 10px; line-height: 14px; font-variant-numeric: tabular-nums; color: #ffffffa6; }
 
 @media (max-width: 1099px) {
   .area { min-height: 440px; }
@@ -250,4 +259,13 @@
 
 @media (min-width: 1100px) {
   .mapa { left: 364px; width: calc(100% - 728px); height: 100%; }
+}
+
+@media (max-width: 699px) {
+  .exploracao[data-estado="true"] { flex: none; }
+  .acoes { flex-wrap: wrap; gap: 6px; }
+  .voltar, .seletor select { font-size: 11px; }
+  .exploracao[data-estado="true"] .quadro { flex-direction: column; flex: none; }
+  .exploracao[data-estado="true"] .area { flex: none; height: 300px; }
+  .exploracao[data-estado="true"] .detalhe { width: auto; max-width: none; margin-top: 0; overflow-y: visible; }
 }
