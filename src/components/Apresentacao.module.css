@@ -107,6 +107,11 @@
 .controles input { min-width: 0; width: 100%; accent-color: #ffdf00; }
 .controles > span { font-size: 11px; }
 .nota { text-align: center; color: #ffffff99; font-size: 10px; line-height: 12px; flex-shrink: 0; }
+.conclusao { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 16px; padding: 4px 0; flex-shrink: 0; }
+.conclusao p { font-size: 12px; color: #ffffffb3; }
+.conclusao button { border-radius: 999px; padding: 8px 16px; background: #ffdf00; color: #07401d; font-size: 13px; font-weight: 800; cursor: pointer; }
+.conclusao button:hover { background: #fff174; }
+.conclusao button:focus-visible { outline: 2px solid white; outline-offset: 3px; }
 .detalhes { flex-shrink: 0; font-size: 10px; line-height: 13px; color: #ffffff99; }
 .detalhes summary { width: fit-content; margin: 0 auto; cursor: pointer; }
 .detalhes ol { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; margin-top: 8px; }

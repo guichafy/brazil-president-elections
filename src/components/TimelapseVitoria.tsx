@@ -14,12 +14,13 @@ import styles from "./Apresentacao.module.css";
 
 const hora = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onAlternar,onPosicionar }: {
+export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onAlternar,onPosicionar,onAnalise }: {
   resultadoFinal: ApuracaoResponse;
   vitoria:EventoVitoria;
   onTentar: () => void;
   onAlternar:()=>void;
   onPosicionar:(ms:number)=>void;
+  onAnalise:()=>void;
 }) {
   const {iniciadoEm,pausado}=vitoria;
   const [dados, setDados] = useState<ReplayResponse | null>(null);
@@ -67,7 +68,7 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
         <div className={styles.marco}>
           <h2 aria-live="polite">{scope==="br" ? marco?.titulo : scopeName(scope)}</h2>
           <p>{hora.format(new Date(resultadoExibido?.isoDataHora ?? dados.pontos[indice].t))} em Brasília · {fmtPct(resultadoExibido?.pctTotalizado ?? 0)} das urnas{scope!=="br" && " nesta seleção"}</p>
-          <output className="tabular">{Math.floor(restante/60)}:{String(restante%60).padStart(2,"0")} restantes</output>
+          <output className="tabular">{encerrada ? "Apuração concluída" : `${Math.floor(restante/60)}:${String(restante%60).padStart(2,"0")} restantes`}</output>
         </div>
         <CandidatoCompacto candidato={resultadoExibido?.candidatos.find(c=>c.numero==="22")} direita />
       </div>
@@ -79,7 +80,10 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
         <input type="range" disabled={carregando} min={0} max={90} step={0.25} value={decorrido/1000} onChange={e=>onPosicionar(Number(e.target.value)*1000)} aria-label="Posição do timelapse" aria-valuetext={`${Math.floor(decorrido/1000)} de 90 segundos`}/>
         <span className="tabular">{Math.floor(decorrido/1000)}s / 90s</span>
       </div>
-      <p className={styles.nota}>A música continua durante a pausa.</p>
+      {encerrada ? <div className={styles.conclusao}>
+        <p role="status">Timelapse concluído. Explore o resultado em detalhes.</p>
+        <button type="button" onClick={onAnalise}>Ir para visão analítica →</button>
+      </div> : <p className={styles.nota}>A música continua durante a pausa.</p>}
 
       <MapaTimelapse apuracao={atual!} scope={scope} onSelect={setScope} pausado={pausado} suspense={clima === "suspense"} revisaoNavegacao={vitoria.revisaoNavegacao??0} />
 

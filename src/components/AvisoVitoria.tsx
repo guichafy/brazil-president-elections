@@ -284,7 +284,7 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
               {vitoria.semSom ? "🔊 Ouvir e reiniciar os 90 segundos" : "↻ Reiniciar com áudio"}
             </button>
         </header>
-        <TimelapseVitoria resultadoFinal={resultadoFinal} vitoria={vitoria} onTentar={onOuvir} onAlternar={onAlternar} onPosicionar={onPosicionar}/>
+        <TimelapseVitoria resultadoFinal={resultadoFinal} vitoria={vitoria} onTentar={onOuvir} onAlternar={onAlternar} onPosicionar={onPosicionar} onAnalise={onFechar}/>
       </div>}
 
     </div>

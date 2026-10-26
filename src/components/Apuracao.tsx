@@ -18,7 +18,7 @@ import Projecao from "./Projecao";
 import ReplayControls from "./ReplayControls";
 import Timeline, { Segmented } from "./Timeline";
 
-type Vista = "evolucao" | "turnos" | "2022";
+type Vista = "evolucao" | "turnos";
 
 function useTimeline(scope: Scope, inicial: TimelineResponse) {
   const [historicos, setHistoricos] = useState<Partial<Record<Scope, TimelineResponse>>>({ [inicial.scope]: inicial });
@@ -106,10 +106,9 @@ export default function Apuracao({
   const comPlacar = segundoTurno && d?.nacional?.candidatos.length === 2;
   const abas: { value: Vista; label: string }[] = [{ value: "evolucao", label: "Evolução" }];
   if (segundoTurno && comparacao.primeiroTurno) abas.push({ value: "turnos", label: "1ºT × 2ºT" });
-  if (segundoTurno && comparacao.ano2022) abas.push({ value: "2022", label: "2022 × 2026" });
   const vistaAtiva = abas.some((a) => a.value === vista) ? vista : "evolucao";
   const referencia =
-    vistaAtiva === "turnos" ? comparacao.primeiroTurno : vistaAtiva === "2022" ? comparacao.ano2022 : null;
+    vistaAtiva === "turnos" ? comparacao.primeiroTurno : null;
 
   const conteudoMapa = d ? (
     <>
@@ -196,7 +195,7 @@ export default function Apuracao({
               <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h2 className="text-lg font-bold">Evolução e comparações</h2>
-                  <p className="mt-1 text-sm text-muted">Consulte a evolução dos votos ou compare os resultados entre turnos e eleições.</p>
+                  <p className="mt-1 text-sm text-muted">Consulte a evolução dos votos ou compare os resultados entre os turnos de 2026.</p>
                 </div>
                 {scope !== "br" && (
                   <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
@@ -205,7 +204,7 @@ export default function Apuracao({
                 )}
               </div>
               <Abas value={vistaAtiva} onChange={selecionarVista} options={abas} painelId={painelId} />
-              <p className="mb-5 text-xs text-muted">As comparações entre turnos e anos usam os dados do Brasil. Selecione um estado no mapa para consultar a evolução dele.</p>
+              <p className="mb-5 text-xs text-muted">A comparação entre turnos usa os dados do Brasil. Selecione um estado no mapa para consultar a evolução dele.</p>
               <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
                 <div>
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">

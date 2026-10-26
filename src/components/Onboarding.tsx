@@ -294,7 +294,7 @@ function MapaELinha() {
         <Item icone="📈">
           <span className="block">
             A <b>linha do tempo</b> mostra como o % de cada um mudou conforme as urnas foram apuradas. O tracejado é a projeção histórica,
-            e as abas comparam com o 1º turno e com 2022.
+            e a aba de comparação mostra a votação no 1º e no 2º turno de 2026.
           </span>
           <svg viewBox="0 0 200 50" className="mt-2 h-12 w-full max-w-60" aria-hidden="true">
             <line x1="0" y1="25" x2="200" y2="25" stroke="var(--border)" />
@@ -312,9 +312,8 @@ function CompararResultados() {
     <ul className="space-y-3">
       <Item icone="📈"><b>Evolução:</b> acompanhe os percentuais dos candidatos ao longo da apuração, no Brasil ou no estado selecionado.</Item>
       <Item icone="🗳️"><b>1ºT × 2ºT:</b> compare a votação nacional dos finalistas nos dois turnos de 2026.</Item>
-      <Item icone="📊"><b>2022 × 2026:</b> compare as disputas presidenciais de segundo turno. Os nomes na legenda identificam os candidatos de cada eleição.</Item>
       <Item icone="🔎">O eixo horizontal usa o <b>percentual de urnas apuradas</b>, para comparar etapas equivalentes. Nas comparações, linhas contínuas mostram o 2º turno de 2026 e tracejadas mostram a referência.</Item>
-      <Item icone="🇧🇷">As comparações entre turnos e anos são nacionais. Ao escolher uma dessas abas, a seleção volta para Brasil.</Item>
+      <Item icone="🇧🇷">A comparação entre turnos é nacional. Ao escolher essa aba, a seleção volta para Brasil.</Item>
     </ul>
   );
 }

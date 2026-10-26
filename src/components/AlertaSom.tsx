@@ -163,9 +163,12 @@ export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangen
 
   useEffect(() => {
     if (!vitoria?.iniciadoEm||vitoria.pausado) return;
-    const t = setTimeout(fecharVitoria, Math.max(0, vitoria.duracaoMs - posicaoTimelapse(vitoria)));
+    const t = setTimeout(() => {
+      pararSom();
+      setVitoria(v => v && { ...v, posicaoMs:v.duracaoMs, iniciadoEm:null, pausado:true });
+    }, Math.max(0, vitoria.duracaoMs - posicaoTimelapse(vitoria)));
     return () => clearTimeout(t);
-  }, [vitoria, fecharVitoria]);
+  }, [vitoria]);
 
   return { ativo, liberado, alternar, definir, testarSom, evento, fecharAviso, onNacional, vitoria, fecharVitoria, ouvirVitoria, testarVitoria,alternarVitoria,posicionarVitoria };
 }
