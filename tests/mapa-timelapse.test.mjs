@@ -3,6 +3,37 @@ import { test } from "node:test";
 import { fatiasVotos, setorPizza, marcadoresSemColisao, posicionarChamada } from "../src/lib/mapa-timelapse.ts";
 import * as mapa from "../src/lib/mapa-timelapse.ts";
 
+test("state updates include absolute vote changes even when candidate shares do not move", () => {
+  assert.equal(typeof mapa.atualizacoesEstaduais, "function", "Falta detectar as atualizações de cada estado");
+  const registro=(lula,flavio,apurado=50)=>({validos:lula+flavio,pctTotalizado:apurado,secoesTotalizadas:apurado,candidatos:[{numero:"22",votos:flavio},{numero:"13",votos:lula}]});
+  const antes={sp:registro(100,100),mg:registro(300,100),ba:registro(0,0,0)};
+  const depois={sp:registro(200,200),mg:registro(300,100),ba:registro(30,70,10)};
+  const updates=mapa.atualizacoesEstaduais(antes,depois);
+  assert.deepEqual(updates.map(u=>u.uf),["ba","sp"]);
+  const sp=updates.find(u=>u.uf==="sp");
+  assert.equal(sp.deltaValidos,200);
+  assert.deepEqual(sp.candidatos,[
+    {numero:"13",antes:{votos:100,pct:50},agora:{votos:200,pct:50},deltaVotos:100},
+    {numero:"22",antes:{votos:100,pct:50},agora:{votos:200,pct:50},deltaVotos:100},
+  ]);
+  assert.equal(updates.find(u=>u.uf==="ba").candidatos[0].antes.votos,0);
+  assert.equal(updates.find(u=>u.uf==="ba").candidatos[0].agora.pct,30);
+  assert.deepEqual(mapa.atualizacoesEstaduais(depois,structuredClone(depois)),[]);
+});
+
+test("state comparisons preserve reverse seeking, vote corrections and progress-only updates", () => {
+  assert.equal(typeof mapa.atualizacoesEstaduais,"function");
+  const a={validos:200,pctTotalizado:50,secoesTotalizadas:50,candidatos:[{numero:"13",votos:100},{numero:"22",votos:100}]};
+  const b={validos:190,pctTotalizado:60,secoesTotalizadas:60,candidatos:[{numero:"13",votos:90},{numero:"22",votos:100}]};
+  const [correcao]=mapa.atualizacoesEstaduais({sp:a},{sp:b});
+  assert.equal(correcao.deltaValidos,-10);
+  assert.equal(correcao.candidatos[0].deltaVotos,-10);
+  const [volta]=mapa.atualizacoesEstaduais({sp:b},{sp:a});
+  assert.equal(volta.candidatos[0].antes.votos,90);
+  assert.equal(volta.candidatos[0].agora.votos,100);
+  assert.equal(mapa.atualizacoesEstaduais({sp:a},{sp:{...a,secoesTotalizadas:51}}).length,1);
+});
+
 test("animated slices move continuously between historical proportions, including empty states and reversals", () => {
   assert.equal(typeof mapa.interpolarFatias, "function", "Falta interpolar as fatias entre snapshots");
   const antes = fatiasVotos({validos:100,candidatos:[{numero:"13",votos:25},{numero:"22",votos:75}]});

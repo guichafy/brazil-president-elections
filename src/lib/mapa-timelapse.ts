@@ -1,4 +1,32 @@
-import type { ResultadoAbrangencia } from "./types";
+import type { ApuracaoResponse, ResultadoAbrangencia } from "./types";
+import { UF_LIST, type UF } from "./ufs";
+
+export interface AtualizacaoEstadual {
+  uf: UF;
+  antesApurado: number;
+  agoraApurado: number;
+  deltaValidos: number;
+  candidatos: { numero: string; antes: { votos: number; pct: number }; agora: { votos: number; pct: number }; deltaVotos: number }[];
+}
+
+/** Compara os quadros exibidos, inclusive votos novos com a mesma proporção e navegação para trás. */
+export function atualizacoesEstaduais(antes: ApuracaoResponse["ufs"], agora: ApuracaoResponse["ufs"]): AtualizacaoEstadual[] {
+  return UF_LIST.flatMap(uf => {
+    const a = antes[uf], b = agora[uf];
+    const candidatos = ["13", "22"].map(numero => {
+      const retrato = (r: ResultadoAbrangencia | undefined) => {
+        const votos = r?.candidatos.find(c => c.numero === numero)?.votos ?? 0;
+        return { votos, pct: r?.validos ? votos / r.validos * 100 : 0 };
+      };
+      const anterior = retrato(a), atual = retrato(b);
+      return { numero, antes: anterior, agora: atual, deltaVotos: atual.votos - anterior.votos };
+    });
+    const antesApurado = a?.pctTotalizado ?? 0, agoraApurado = b?.pctTotalizado ?? 0;
+    const deltaValidos = (b?.validos ?? 0) - (a?.validos ?? 0);
+    const mudou = deltaValidos !== 0 || candidatos.some(c => c.deltaVotos !== 0) || antesApurado !== agoraApurado || (a?.secoesTotalizadas ?? 0) !== (b?.secoesTotalizadas ?? 0);
+    return mudou ? [{ uf, antesApurado, agoraApurado, deltaValidos, candidatos }] : [];
+  });
+}
 
 export function fatiasVotos(r?: Pick<ResultadoAbrangencia,"validos"|"candidatos">) {
   let inicio = 0;

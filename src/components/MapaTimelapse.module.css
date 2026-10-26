@@ -32,6 +32,117 @@
   overflow: hidden;
 }
 
+.layoutReacoes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.atualizacoes {
+  display: flex;
+  min-width: 0;
+  max-height: 480px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #ffffff26;
+  border-radius: 16px;
+  background: #052f18;
+}
+
+.tituloAtualizacoes {
+  flex-shrink: 0;
+  padding: 16px;
+  border-bottom: 1px solid #ffffff26;
+}
+
+.listaAtualizacoes {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: #ffffff50 #052f18;
+}
+
+.atualizacao {
+  border-bottom: 1px solid #ffffff1f;
+  border-left: 3px solid transparent;
+  padding: 14px 12px;
+}
+
+.atualizacao[data-recente="true"] {
+  border-left-color: #ffdf00;
+  background: #ffdf000a;
+}
+
+.nomeAtualizacao {
+  text-align: left;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.nomeAtualizacao:focus-visible {
+  outline: 2px solid #ffdf00;
+  outline-offset: 3px;
+}
+
+.antesAgora {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.antesAgora > div > span {
+  display: block;
+  color: #ffffff88;
+  font-size: 10px;
+}
+
+.antesAgora strong {
+  display: block;
+  margin: 2px 0;
+  font-size: 16px;
+}
+
+.antesAgora > div:first-child {
+  color: #ffffffa6;
+}
+
+.reacaoEstado {
+  stroke: #ffdf00;
+  stroke-width: 4;
+  stroke-linejoin: round;
+  pointer-events: none;
+  animation: estado-atualizado 950ms ease-out both;
+}
+
+.pulsoEstado {
+  stroke: #ffdf00;
+  stroke-width: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulso-atualizacao 950ms ease-out both;
+}
+
+@keyframes estado-atualizado {
+  0%, 20% { stroke-opacity: 1; stroke-width: 4; }
+  100% { stroke-opacity: 0; stroke-width: 1; }
+}
+
+@keyframes pulso-atualizacao {
+  0% { opacity: 1; transform: scale(0.7); }
+  100% { opacity: 0; transform: scale(2.4); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reacaoEstado { animation: none; stroke-width: 2; }
+  .pulsoEstado { display: none; }
+}
+
 .area {
   position: relative;
   height: min(80dvh, calc((100vw - 32px) * 1.07));
@@ -124,6 +235,15 @@
 }
 
 @media (min-width: 1280px) {
+  .layoutReacoes {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  .atualizacoes {
+    height: min(82dvh, 880px);
+    max-height: min(82dvh, 880px);
+  }
+
   .detalhe {
     width: 288px;
     max-width: calc(100% - 24px);

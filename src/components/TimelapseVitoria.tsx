@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { carregarReplayCliente } from "@/lib/replay-client";
 import { aplicarReplay } from "@/lib/replay";
-import { criarRoteiro, DURACAO_COMEMORACAO_MS, indiceNoTempo, insightsEstaduais,posicaoTimelapse } from "@/lib/timelapse";
+import { criarRoteiro, DURACAO_COMEMORACAO_MS, indiceNoTempo, posicaoTimelapse } from "@/lib/timelapse";
 import { fmtInt, fmtPct } from "@/lib/format";
 import { scopeName, type Scope } from "@/lib/ufs";
 import type { ApuracaoResponse, ReplayResponse } from "@/lib/types";
@@ -11,7 +11,6 @@ import MapaTimelapse from "./MapaTimelapse";
 import type {EventoVitoria} from "./AvisoVitoria";
 
 const hora = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-const delta = (n: number) => `${n >= 0 ? "+" : "−"}${fmtInt(Math.abs(n))}`;
 
 export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onAlternar,onPosicionar }: {
   resultadoFinal: ApuracaoResponse;
@@ -33,7 +32,7 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
   }, [tentativa, iniciadoEm]);
   useEffect(() => {
     if (iniciadoEm === null||pausado) return;
-    const id = setInterval(() => setAgora(Date.now()), 250);
+    const id = setInterval(() => setAgora(Date.now()), 1000);
     return () => clearInterval(id);
   }, [iniciadoEm,pausado]);
   // Na reinicialização, o instante anterior nunca pode adiantar o novo filme.
@@ -41,11 +40,6 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
   const roteiro = useMemo(() => dados ? criarRoteiro(dados) : null, [dados]);
   const indice = roteiro ? indiceNoTempo(roteiro, decorrido) : 0;
   const atual = useMemo(() => dados ? aplicarReplay(resultadoFinal, dados, indice) : null, [resultadoFinal, dados, indice]);
-  const marcoAnterior = roteiro?.marcos.filter(m => m.indice < indice).at(-1);
-  const indiceAnterior = marcoAnterior?.indice ?? 0;
-  const antes = useMemo(() => dados ? aplicarReplay(resultadoFinal, dados, indiceAnterior) : null, [resultadoFinal, dados, indiceAnterior]);
-  const estados = useMemo(() => atual && antes ? insightsEstaduais(atual, antes) : [], [atual, antes]);
-  const destaques = estados.filter(e=>e.lula.delta+e.flavio.delta>0).sort((a,b) => (b.lula.delta + b.flavio.delta) - (a.lula.delta + a.flavio.delta)).slice(0,3);
   const marco = roteiro?.marcos.filter(m => m.indice <= indice).at(-1);
   const nacional = atual?.nacional;
   const restante = Math.ceil((DURACAO_COMEMORACAO_MS - decorrido) / 1000);
@@ -90,14 +84,6 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
       </div>
 
       <MapaTimelapse apuracao={atual!} scope={scope} onSelect={setScope} />
-      <div className="mt-4 border-t border-white/20 pt-3">
-        <h3 className="text-sm font-semibold">Maiores entradas de votos no trecho</h3>
-        <p className="text-xs text-white/60">Desde {hora.format(new Date(dados.pontos[indiceAnterior].t))} · diferenças entre registros</p>
-        {destaques.length ? <ul className="mt-2 grid gap-3 text-xs tabular sm:grid-cols-3">{destaques.map(e=><li key={e.scope} className="border-l-2 border-[#FFDF00]/60 pl-2">
-          <strong>{e.nome}</strong> · apuração {e.deltaApurado.toLocaleString("pt-BR",{maximumFractionDigits:2})} p.p.
-          <div>Lula {delta(e.lula.delta)} votos · Flávio {delta(e.flavio.delta)} votos</div>
-        </li>)}</ul> : <p className="mt-2 text-xs text-white/65">Os destaques aparecem com as próximas entradas de votos gravadas.</p>}
-      </div>
 
       <ol className="mt-5 grid grid-cols-2 gap-2 border-t border-white/20 pt-3 text-xs sm:flex sm:flex-wrap sm:justify-between" aria-label="Marcos da apuração">
         {roteiro.marcos.map((m,i)=><li key={`${m.tipo}-${m.indice}`} aria-current={m===marco ? "step" : undefined} className={m.indice <= indice ? "text-[#FFDF00]" : "text-white/45"}>
