@@ -5,6 +5,7 @@ import { assetPath } from "@/lib/assets";
 import { EASE, fixo, rgba, transformacao } from "@/lib/lottie";
 import type { ApuracaoResponse } from "@/lib/types";
 import TimelapseVitoria from "./TimelapseVitoria";
+import AnimacaoApreensao from "./AnimacaoApreensao";
 import styles from "./Apresentacao.module.css";
 
 // Animações da LottieFiles (Lottie Simple License) em public/lottie/:
@@ -270,8 +271,11 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
         </div>
       ) : <div className={styles.apresentacao}>
         <header className={styles.cabecalho}>
-          <AnimacaoLula cor={corLula} className={styles.lula} />
-          <div>
+          <div className={styles.reacao} aria-hidden="true">
+            <AnimacaoLula cor={corLula} className={styles.lula} />
+            <AnimacaoApreensao className={styles.apreensao} />
+          </div>
+          <div className={styles.titulo}>
             {vitoria.teste && <p className="text-xs text-white/65">Reprodução da comemoração</p>}
             <h1>Cada estado. Cada virada.</h1>
             <p>Resultado final: {vitoria.pct.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% · {vitoria.votos.toLocaleString("pt-BR")} votos{venceuSegundoTurno && vitoria.eleito ? " · eleito pelo TSE" : ""}</p>

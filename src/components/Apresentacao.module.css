@@ -23,17 +23,7 @@
 .dialogo:has([data-clima="suspense"]) .apresentacao { filter: grayscale(1); }
 .dialogo:has([data-clima="suspense"]) .festa,
 .dialogo:has([data-clima="suspense"]) .lula { display: none; }
-.dialogo:has([data-clima="suspense"]) .cabecalho > div { grid-column: 2; }
-.dialogo:has([data-clima="suspense"]) .cabecalho::before {
-  content: "";
-  width: 12px;
-  height: 32px;
-  justify-self: end;
-  background: linear-gradient(110deg, #4a4a4a, #111 65%);
-  border: 1px solid #666;
-  transform: rotate(-28deg);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
-}
+.dialogo:has([data-clima="suspense"]) .apreensao { display: block; }
 
 .apresentacao {
   position: relative;
@@ -61,7 +51,10 @@
   text-align: center;
 }
 
-.lula { width: 36px; justify-self: end; }
+.reacao { display: grid; grid-template-rows: minmax(0, 1fr); place-items: center; width: 64px; height: 52px; justify-self: end; }
+.lula { width: 36px; }
+.reacao .apreensao { display: none; }
+.titulo { grid-column: 2; min-width: 0; }
 .cabecalho h1 { color: #ffdf00; font-size: 21px; line-height: 25px; font-weight: 900; }
 .cabecalho p { margin-top: 2px; font-size: 10px; line-height: 13px; color: #ffffffb3; }
 .reiniciar { border-radius: 999px; padding: 6px 10px; background: #ffdf00; color: #07401d; font-size: 11px; font-weight: 800; cursor: pointer; }
@@ -127,10 +120,9 @@
 @media (max-width: 699px) {
   .apresentacao:has([data-estado="true"]) { height: auto; }
   .filme:has([data-estado="true"]) { flex: none; }
-  .dialogo:has([data-clima="suspense"]) .cabecalho > div { grid-column: 1; }
-  .dialogo:has([data-clima="suspense"]) .cabecalho::before { display: none; }
-  .cabecalho { grid-template-columns: minmax(0, 1fr) 112px; gap: 8px; padding-inline: 0 32px; }
-  .lula { display: none; }
+  .cabecalho { grid-template-columns: 36px minmax(0, 1fr) 96px; gap: 8px; padding-inline: 0 32px; }
+  .reacao { width: 36px; height: 36px; }
+  .lula { width: 28px; }
   .cabecalho h1 { font-size: 15px; line-height: 18px; }
   .cabecalho p { font-size: 9px; line-height: 11px; }
   .reiniciar { font-size: 10px; padding: 6px; }
