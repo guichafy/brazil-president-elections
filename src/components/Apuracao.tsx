@@ -59,6 +59,8 @@ export default function Apuracao({
   timelineInicial: TimelineResponse;
 }) {
   const [scope, setScope] = useState<Scope>("br");
+  // Duplo clique num estado troca o mapa do Brasil pelo dos municípios, no mesmo lugar.
+  const [drill, setDrill] = useState<Exclude<Scope, "br"> | null>(null);
   const [destaque, setDestaque] = useState<string | null>(null);
   const [replay, setReplay] = useState<{ dados: ReplayResponse; indice: number } | null>(null);
   const [vista, setVista] = useState<Vista>("evolucao");
@@ -73,7 +75,13 @@ export default function Apuracao({
       window.scrollTo({ top:0, behavior:"instant" });
     });
   }, []);
-  const selecionarScope = (s: Scope) => { setScope(s); setVista("evolucao"); };
+  const selecionarScope = (s: Scope) => { setScope(s); setVista("evolucao"); setDrill(null); };
+  const abrirMunicipios = (s: Scope) => {
+    if (s === "br") return;
+    setScope(s);
+    setVista("evolucao");
+    setDrill(s);
+  };
   const selecionarVista = (v: Vista) => { setVista(v); if (v !== "evolucao") setScope("br"); };
   const d = useMemo(() => replay ? aplicarReplay(resultadoFinal, replay.dados, replay.indice) : resultadoFinal, [resultadoFinal, replay]);
   const historicoAtivo = !!replay && replay.indice < replay.dados.pontos.length - 1;
@@ -94,6 +102,23 @@ export default function Apuracao({
     scope === "br" ? d?.nacional : scope === "zz" ? d?.exterior : d?.ufs[scope];
   // Os municípios só têm o resultado final, então comparam com a UF final mesmo durante o replay.
   const ufFinal = scope === "br" ? null : scope === "zz" ? resultadoFinal.exterior : resultadoFinal.ufs[scope];
+  const municipiosDe = drill === scope && ufFinal ? drill : null;
+  const conteudoMunicipios = municipiosDe && ufFinal && (
+    <Municipios
+      key={municipiosDe}
+      scope={municipiosDe}
+      uf={ufFinal}
+      destaque={destaque}
+      onDestaque={setDestaque}
+      historicoAtivo={historicoAtivo}
+      onVoltar={() => setDrill(null)}
+    />
+  );
+  const botaoMunicipios = scope !== "br" && (
+    <button type="button" onClick={() => abrirMunicipios(scope)} className="text-sm font-semibold text-accent hover:underline">
+      Ver {scope === "zz" ? "cidades" : "municípios"} →
+    </button>
+  );
 
   const mapMode: MapMode = useMemo(() => {
     const c = d?.nacional?.candidatos.find((x) => x.numero === destaque);
@@ -116,9 +141,9 @@ export default function Apuracao({
 
   const conteudoMapa = d ? (
     <>
-      <BrazilMap ufs={d.ufs} selected={scope} onSelect={selecionarScope} mode={mapMode} />
+      <BrazilMap ufs={d.ufs} selected={scope} onSelect={selecionarScope} onDrill={abrirMunicipios} mode={mapMode} />
       {mapMode.tipo === "lider" && <Legenda d={d} />}
-      <UfGrid d={d} selected={scope} onSelect={selecionarScope} mode={mapMode} />
+      <UfGrid d={d} selected={scope} onSelect={selecionarScope} onDrill={abrirMunicipios} mode={mapMode} />
     </>
   ) : (
     <Skeleton />
@@ -196,102 +221,111 @@ export default function Apuracao({
 
           {comPlacar ? (
             <section className="mt-5 rounded-xl bg-surface p-4 shadow-sm">
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h2 className="text-lg font-bold">Evolução e comparações</h2>
-                  <p className="mt-1 text-sm text-muted">Consulte a evolução dos votos ou compare os resultados entre os turnos de 2026.</p>
-                </div>
-                {scope !== "br" && (
-                  <div className="flex flex-wrap gap-x-4 gap-y-1">
-                    <a href="#municipios" className="text-sm font-semibold text-accent hover:underline">
-                      {scope === "zz" ? "Cidades" : "Municípios"} ↓
-                    </a>
-                    <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
-                      ← Voltar para Brasil
-                    </button>
-                  </div>
-                )}
-              </div>
-              <Abas value={vistaAtiva} onChange={selecionarVista} options={abas} painelId={painelId} />
-              <p className="mb-5 text-xs text-muted">A comparação entre turnos usa os dados do Brasil. Selecione um estado no mapa para consultar a evolução dele e o resultado de cada município.</p>
-              <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                <div>
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold">Mapa</h3>
-                    {d?.nacional && (
-                      <span className="flex items-center gap-2 text-xs text-muted">
-                        Colorir por
-                        <Segmented
-                          value={destaque ?? "lider"}
-                          onChange={(v) => setDestaque(v === "lider" ? null : v)}
-                          options={[
-                            { value: "lider", label: "Líder" },
-                            ...d.nacional.candidatos.map((c) => ({ value: c.numero, label: primeiroNome(c.nome) })),
-                          ]}
-                        />
-                      </span>
+              {conteudoMunicipios || (
+                <>
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <h2 className="text-lg font-bold">Evolução e comparações</h2>
+                      <p className="mt-1 text-sm text-muted">Consulte a evolução dos votos ou compare os resultados entre os turnos de 2026.</p>
+                    </div>
+                    {scope !== "br" && (
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        {botaoMunicipios}
+                        <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
+                          ← Voltar para Brasil
+                        </button>
+                      </div>
                     )}
                   </div>
-                  {candidatoDestaque && (
-                    <p className="mb-1 text-xs text-muted">
-                      Intensidade = % de <b>{candidatoDestaque.nome}</b> em cada estado
-                    </p>
-                  )}
-                  {conteudoMapa}
-                </div>
-                <div className="order-first min-w-0 lg:order-last">
-                  <h3 className="mb-2 text-sm font-semibold">{scopeName(scope)} · % dos votos válidos</h3>
-                  {conteudoLinha}
-                </div>
-              </div>
+                  <Abas value={vistaAtiva} onChange={selecionarVista} options={abas} painelId={painelId} />
+                  <p className="mb-5 text-xs text-muted">A comparação entre turnos usa os dados do Brasil. Selecione um estado no mapa para consultar a evolução dele. Com um duplo clique, veja os municípios.</p>
+                  <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                    <div>
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-sm font-semibold">Mapa</h3>
+                        {d?.nacional && (
+                          <span className="flex items-center gap-2 text-xs text-muted">
+                            Colorir por
+                            <Segmented
+                              value={destaque ?? "lider"}
+                              onChange={(v) => setDestaque(v === "lider" ? null : v)}
+                              options={[
+                                { value: "lider", label: "Líder" },
+                                ...d.nacional.candidatos.map((c) => ({ value: c.numero, label: primeiroNome(c.nome) })),
+                              ]}
+                            />
+                          </span>
+                        )}
+                      </div>
+                      {candidatoDestaque && (
+                        <p className="mb-1 text-xs text-muted">
+                          Intensidade = % de <b>{candidatoDestaque.nome}</b> em cada estado
+                        </p>
+                      )}
+                      {conteudoMapa}
+                    </div>
+                    <div className="order-first min-w-0 lg:order-last">
+                      <h3 className="mb-2 text-sm font-semibold">{scopeName(scope)} · % dos votos válidos</h3>
+                      {conteudoLinha}
+                    </div>
+                  </div>
+                </>
+              )}
             </section>
           ) : (
             <>
-              <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-                <section className="rounded-xl bg-surface p-4 shadow-sm">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <h2 className="text-lg font-bold">{scopeName(scope)}</h2>
-                    {scope !== "br" && (
-                      <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
-                        ← Voltar para Brasil
-                      </button>
-                    )}
-                  </div>
-                  {atual ? (
-                    <>
-                      <CandidateList
-                        candidatos={atual.candidatos}
-                        destaque={destaque}
-                        onDestaque={setDestaque}
-                        vencedor={mostraDecisao && atual.decisao.garantido ? atual.decisao.lider : null}
-                      />
-                      {mostraDecisao && <DecisaoInfo r={atual} />}
-                      <ResumoVotos r={atual} />
-                    </>
-                  ) : (
-                    <Skeleton />
-                  )}
-                </section>
-
-                <section className="rounded-xl bg-surface p-4 shadow-sm">
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-lg font-bold">Mapa por estado</h2>
-                    <span className="text-xs text-muted">
-                      {candidatoDestaque ? (
-                        <>
-                          Intensidade = % de <b>{candidatoDestaque.nome}</b> ·{" "}
-                          <button type="button" className="font-semibold text-accent hover:underline" onClick={() => setDestaque(null)}>
-                            ver quem lidera
+              {conteudoMunicipios ? (
+                <section className="mt-5 rounded-xl bg-surface p-4 shadow-sm">{conteudoMunicipios}</section>
+              ) : (
+                <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+                  <section className="rounded-xl bg-surface p-4 shadow-sm">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <h2 className="text-lg font-bold">{scopeName(scope)}</h2>
+                      {scope !== "br" && (
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                          {botaoMunicipios}
+                          <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
+                            ← Voltar para Brasil
                           </button>
-                        </>
-                      ) : (
-                        "Cor do candidato que lidera em cada estado"
+                        </div>
                       )}
-                    </span>
-                  </div>
-                  {conteudoMapa}
-                </section>
-              </div>
+                    </div>
+                    {atual ? (
+                      <>
+                        <CandidateList
+                          candidatos={atual.candidatos}
+                          destaque={destaque}
+                          onDestaque={setDestaque}
+                          vencedor={mostraDecisao && atual.decisao.garantido ? atual.decisao.lider : null}
+                        />
+                        {mostraDecisao && <DecisaoInfo r={atual} />}
+                        <ResumoVotos r={atual} />
+                      </>
+                    ) : (
+                      <Skeleton />
+                    )}
+                  </section>
+
+                  <section className="rounded-xl bg-surface p-4 shadow-sm">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <h2 className="text-lg font-bold">Mapa por estado</h2>
+                      <span className="text-xs text-muted">
+                        {candidatoDestaque ? (
+                          <>
+                            Intensidade = % de <b>{candidatoDestaque.nome}</b> ·{" "}
+                            <button type="button" className="font-semibold text-accent hover:underline" onClick={() => setDestaque(null)}>
+                              ver quem lidera
+                            </button>
+                          </>
+                        ) : (
+                          "Cor de quem lidera; duplo clique abre os municípios"
+                        )}
+                      </span>
+                    </div>
+                    {conteudoMapa}
+                  </section>
+                </div>
+              )}
 
               <section className="mt-5 rounded-xl bg-surface p-4 shadow-sm">
                 <div className="mb-3">
@@ -302,10 +336,6 @@ export default function Apuracao({
                 {conteudoLinha}
               </section>
             </>
-          )}
-
-          {scope !== "br" && ufFinal && (
-            <Municipios key={scope} scope={scope} uf={ufFinal} destaque={destaque} onDestaque={setDestaque} historicoAtivo={historicoAtivo} />
           )}
 
           <footer className="mt-6 text-center text-xs text-muted">
@@ -427,11 +457,13 @@ function UfGrid({
   d,
   selected,
   onSelect,
+  onDrill,
   mode,
 }: {
   d: ApuracaoResponse;
   selected: Scope;
   onSelect: (s: Scope) => void;
+  onDrill: (s: Scope) => void;
   mode: MapMode;
 }) {
   const scopes: Scope[] = [...UF_LIST, "zz"];
@@ -448,6 +480,7 @@ function UfGrid({
             key={s}
             type="button"
             onClick={() => onSelect(sel ? "br" : s)}
+            onDoubleClick={() => onDrill(s)}
             title={`${scopeName(s)}${lider ? ` · ${lider.nome} ${fmtPct(lider.pct)}` : ""}${r ? ` · ${fmtPct(r.pctTotalizado)} apurado` : ""}${garantido ? " · vitória garantida" : ""}`}
             className={`relative overflow-hidden rounded py-0.5 leading-tight ${sel ? "ring-2 ring-foreground" : ""}`}
           >

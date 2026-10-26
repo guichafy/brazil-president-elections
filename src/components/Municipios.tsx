@@ -81,12 +81,14 @@ export default function Municipios({
   destaque,
   onDestaque,
   historicoAtivo,
+  onVoltar,
 }: {
   scope: Abrangencia;
   uf: ResultadoAbrangencia; // resultado final da UF: os municípios não têm histórico
   destaque: string | null;
   onDestaque: (numero: string | null) => void;
   historicoAtivo: boolean;
+  onVoltar: () => void;
 }) {
   const { dados, erro, tentarNovamente } = useMunicipios(scope);
   const [selecionado, setSelecionado] = useState<string | null>(null);
@@ -108,9 +110,12 @@ export default function Municipios({
   };
 
   return (
-    <section id="municipios" className="mt-5 scroll-mt-4 rounded-xl bg-surface p-4 shadow-sm">
+    <div>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div>
+          <button type="button" onClick={onVoltar} className="mb-1 text-sm font-semibold text-accent hover:underline">
+            ← Mapa do Brasil
+          </button>
           <h2 className="text-lg font-bold">
             {exterior ? "Cidades no exterior" : `Municípios · ${scopeName(scope)}`}
           </h2>
@@ -159,7 +164,7 @@ export default function Municipios({
       ) : (
         <div className="h-64 animate-pulse rounded-lg bg-track" />
       )}
-    </section>
+    </div>
   );
 }
 

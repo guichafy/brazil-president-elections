@@ -285,8 +285,8 @@ function MapaELinha() {
       </Exemplo>
       <ul className="space-y-3">
         <Item icone="👆">
-          <b>Clique num estado</b>, no mapa ou na grade de siglas, para ver o placar e a linha do tempo só dele. &quot;Voltar
-          para Brasil&quot; retorna ao resultado nacional.
+          <b>Clique num estado</b>, no mapa ou na grade de siglas, para ver o placar e a linha do tempo só dele. Com um{" "}
+          <b>duplo clique</b>, o mapa mostra os municípios do estado. &quot;Voltar para Brasil&quot; retorna ao resultado nacional.
         </Item>
         <Item icone="🎨">
           Em &quot;Colorir por&quot;, troque &quot;Líder&quot; por um candidato: quanto mais forte a cor, maior o % dele no estado.

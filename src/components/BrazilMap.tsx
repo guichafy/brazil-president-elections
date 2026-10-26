@@ -61,10 +61,11 @@ interface Props {
   ufs: Partial<Record<Scope, ResultadoAbrangencia>>;
   selected: Scope;
   onSelect: (s: Scope) => void;
+  onDrill?: (s: Scope) => void; // duplo clique: abre os municípios do estado
   mode: MapMode;
 }
 
-export default function BrazilMap({ ufs, selected, onSelect, mode }: Props) {
+export default function BrazilMap({ ufs, selected, onSelect, onDrill, mode }: Props) {
   const [hover, setHover] = useState<{ uf: UF; x: number; y: number } | null>(null);
 
   const maxPct = useMemo(() => {
@@ -110,12 +111,13 @@ export default function BrazilMap({ ufs, selected, onSelect, mode }: Props) {
               strokeWidth={1}
               className="cursor-pointer transition-[fill-opacity] duration-500 hover:brightness-110"
               onClick={() => onSelect(selected === uf ? "br" : uf)}
+              onDoubleClick={() => onDrill?.(uf)}
               onMouseMove={(ev) => {
                 const box = (ev.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
                 setHover({ uf, x: ev.clientX - box.left, y: ev.clientY - box.top });
               }}
             >
-              <title>{UFS[uf]}</title>
+              <title>{onDrill ? `${UFS[uf]} · duplo clique para ver os municípios` : UFS[uf]}</title>
             </path>
           );
         })}
