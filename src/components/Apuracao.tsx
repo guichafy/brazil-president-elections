@@ -64,7 +64,7 @@ export default function Apuracao({
 
   const guia = useOnboarding();
   // com o guia aberto, os alertas de verdade esperam, para não se misturar aos testes de som
-  const som = useAlertaSom(guia.aberto);
+  const som = useAlertaSom(guia.aberto, resultadoFinal.nacional);
   const controleReplay = <ReplayControls scope={scope} bloqueado={!!som.vitoria||guia.aberto} somAtivo={som.ativo} indice={replay?.indice ?? null} onChange={(dados, indice) => setReplay({ dados, indice })} />;
   const timeline = useTimeline(scope, timelineInicial);
   const [vista, setVista] = useState<Vista>("evolucao");
@@ -136,7 +136,7 @@ export default function Apuracao({
 
   return (
     <>
-      <div className="flex min-h-screen flex-col" inert={guia.aberto}>
+      <div className="flex min-h-screen flex-col" inert={guia.aberto || !!som.vitoria}>
         <header className="bg-accent text-white">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3">
             <div>
@@ -153,7 +153,7 @@ export default function Apuracao({
                 >
                   ❓ Como funciona?
                 </button>
-                <BotaoSom ativo={som.ativo} liberado={som.liberado} alternar={som.alternar} testarVitoria={som.testarVitoria} />
+                <BotaoSom ativo={som.ativo} liberado={som.liberado} alternar={som.alternar} testarVitoria={som.testarVitoria} testarSom={som.testarSom} />
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="inline-block size-2 rounded-full bg-white" />
@@ -294,16 +294,16 @@ export default function Apuracao({
           corLula={d?.nacional?.candidatos.find((c) => c.numero === "13")?.cor ?? "#D60828"}
           corFlavio={d?.nacional?.candidatos.find((c) => c.numero === "22")?.cor ?? "#272D97"}
         />
-        <AvisoVitoria
-          onAlternar={som.alternarVitoria}
-          onPosicionar={som.posicionarVitoria}
-          resultadoFinal={resultadoFinal}
-          vitoria={som.vitoria}
-          onFechar={som.fecharVitoria}
-          onOuvir={som.ouvirVitoria}
-          corLula={d?.nacional?.candidatos.find((c) => c.numero === "13")?.cor ?? "#D60828"}
-        />
       </div>
+      <AvisoVitoria
+        onAlternar={som.alternarVitoria}
+        onPosicionar={som.posicionarVitoria}
+        resultadoFinal={resultadoFinal}
+        vitoria={som.vitoria}
+        onFechar={som.fecharVitoria}
+        onOuvir={som.ouvirVitoria}
+        corLula={d?.nacional?.candidatos.find((c) => c.numero === "13")?.cor ?? "#D60828"}
+      />
       {guia.aberto && (
         <Onboarding
           podeFechar={guia.revendo}

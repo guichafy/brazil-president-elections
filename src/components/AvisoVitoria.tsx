@@ -170,11 +170,14 @@ export interface EventoVitoria {
   iniciadoEm: number | null;
   posicaoMs:number;
   pausado:boolean;
+  aguardandoInicio?:boolean;
+  preparando?:boolean;
+  erroAudio?:string;
   eleito: boolean; // TSE já declarou; senão, vitória garantida pela conta
   pct: number;
   votos: number;
   teste?: boolean;
-  semSom?: boolean; // o navegador bloqueou o áudio: o 1º toque libera e toca, em vez de fechar
+  semSom?: boolean;
 }
 
 interface Props {
@@ -204,7 +207,7 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
     const aoTeclar = (e: KeyboardEvent) => {
       if (e.key === "Escape") onFechar();
       if (e.key !== "Tab") return;
-      const controles = dialog.current?.querySelectorAll<HTMLElement>("button, select, a[href], [tabindex='0']");
+      const controles = dialog.current?.querySelectorAll<HTMLElement>("button:not(:disabled), select, input:not(:disabled), a[href], [tabindex='0']");
       if (!controles?.length) return;
       const primeiro = controles[0], ultimo = controles[controles.length - 1];
       if (e.shiftKey && (document.activeElement === primeiro || document.activeElement === dialog.current)) { e.preventDefault(); ultimo.focus(); }
@@ -217,6 +220,7 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
       if (anterior instanceof HTMLElement && anterior.isConnected) anterior.focus();
     };
   }, [onFechar]);
+  useEffect(() => { dialog.current?.focus(); }, [vitoria.aguardandoInicio]);
 
   return (
     <div
@@ -225,11 +229,13 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
       ref={dialog}
       tabIndex={-1}
       aria-label={venceuSegundoTurno ? "Lula venceu a eleição" : "Demonstração do timelapse da apuração"}
-      className="aviso-fundo fixed inset-0 z-[60] overflow-y-auto bg-[#07401d] text-white outline-none"
+      className="fixed inset-0 z-[60] overflow-y-auto bg-[#07401d] text-white outline-none"
     >
-      <Arquivo src="/lottie/confete.json" cobrir className="pointer-events-none absolute inset-0" />
-      <Arquivo src="/lottie/fogos.json" className="pointer-events-none absolute top-[3%] left-[2%] size-40 sm:size-64" />
-      <Arquivo src="/lottie/fogos.json" className="pointer-events-none absolute top-[12%] right-[2%] size-32 sm:size-56" />
+      {!vitoria.aguardandoInicio && <>
+        <Arquivo src="/lottie/confete.json" cobrir className="pointer-events-none absolute inset-0" />
+        <Arquivo src="/lottie/fogos.json" className="pointer-events-none absolute top-[3%] left-[2%] size-40 sm:size-64" />
+        <Arquivo src="/lottie/fogos.json" className="pointer-events-none absolute top-[12%] right-[2%] size-32 sm:size-56" />
+      </>}
 
       <button
         type="button"
@@ -243,7 +249,22 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
         ✕
       </button>
 
-      <div className="relative mx-auto max-w-[1600px] px-4 py-6 pb-12 sm:px-8">
+      {vitoria.aguardandoInicio ? (
+        <div className="relative mx-auto flex min-h-dvh max-w-2xl flex-col items-center justify-center px-6 py-20 text-center">
+          <p className="text-sm text-white/65">Eleições 2026 · {resultadoFinal.nacional?.turno}º turno</p>
+          <h1 className="mt-4 text-4xl font-black tracking-tight text-[#FFDF00] sm:text-6xl">Cada estado.<br />Cada virada.</h1>
+          <p className="mt-5 max-w-md text-base leading-relaxed text-white/80 sm:text-lg">Reviva a apuração em 90 segundos. Acompanhe a disputa em cada estado, ao som da música da vitória.</p>
+          <button type="button" onClick={onOuvir} disabled={vitoria.preparando} aria-busy={vitoria.preparando} className="group mt-9 flex flex-col items-center gap-4 rounded-2xl p-4 font-bold text-[#FFDF00] disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+            <span className="grid size-24 place-items-center rounded-full bg-[#FFDF00] text-[#07401d] transition-transform group-hover:scale-105 motion-reduce:transition-none sm:size-28">
+              <svg viewBox="0 0 32 32" className="ml-1 size-10" aria-hidden="true"><path d="M10 5 L27 16 L10 27 Z" fill="currentColor" /></svg>
+            </span>
+            <span className="text-lg">{vitoria.preparando ? "Preparando música e apuração…" : vitoria.erroAudio ? "Tentar iniciar com música" : "Iniciar com música"}</span>
+          </button>
+          {vitoria.erroAudio && <p role="alert" className="mt-3 max-w-sm text-sm text-[#ffcfb6]">{vitoria.erroAudio}</p>}
+          <p role="status" className="mt-5 text-xs text-white/60">{vitoria.preparando ? "A contagem começa quando tudo estiver pronto." : "Ative o volume. Você pode pausar e explorar os estados durante a reprodução."}</p>
+          <button type="button" onClick={onFechar} disabled={vitoria.preparando} className="mt-8 rounded px-3 py-2 text-sm text-white/65 underline underline-offset-4 hover:text-white focus-visible:outline-2 focus-visible:outline-white">Explorar o resultado final</button>
+        </div>
+      ) : <div className="relative mx-auto max-w-[1600px] px-4 py-6 pb-12 sm:px-8">
         <header className="mb-5 flex items-center gap-3 pr-8">
           <AnimacaoLula cor={corLula} className="hidden w-24 shrink-0 sm:block" />
           <div>
@@ -257,7 +278,7 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
         </header>
         <TimelapseVitoria resultadoFinal={resultadoFinal} vitoria={vitoria} onTentar={onOuvir} onAlternar={onAlternar} onPosicionar={onPosicionar}/>
         <p className="mt-4 text-[11px] text-white/50">Trilha: <a className="underline" href="https://www.youtube.com/watch?v=r4L7BYH1JHA" target="_blank" rel="noreferrer">Olê, olê, olê, olá · Exército da Esquerda</a> · trecho de 90 segundos.</p>
-      </div>
+      </div>}
 
     </div>
   );

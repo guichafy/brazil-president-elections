@@ -138,8 +138,7 @@ async function tocarArquivo(url: string, reserva: () => void): Promise<number | 
     return null;
   }
   faixa={buffer:buf,offset:0,inicio:ctx.currentTime??0,pausado:true};
-  retomarSom();
-  return buf.duration;
+  return retomarSom() ? buf.duration : null;
 }
 
 /** Interrompe o áudio em andamento (os arquivos têm de 6s a 1min) e descarta o que ainda estiver carregando. */
@@ -151,7 +150,8 @@ export function pararSom() {
 
 export const somFeliz = () => tocarArquivo(sortear(AUDIOS_LULA), arpejoFeliz);
 export const somTriste = () => tocarArquivo(AUDIO_BOLSONARO, tromboneTriste);
-export const somVitoria = () => tocarArquivo(AUDIO_VITORIA, arpejoFeliz);
+// A apresentação espera a música real; uma falha permite tentar novamente, sem iniciar um filme mudo.
+export const somVitoria = () => tocarArquivo(AUDIO_VITORIA, () => {});
 
 /** Arpejo maior ascendente com um brilho no final. Também confirma que o som foi ligado. */
 export function arpejoFeliz() {

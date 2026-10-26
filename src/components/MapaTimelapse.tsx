@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { geoIdentity, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import brasil from "@/data/brasil-ufs.json";
-import { fatiasVotos, MAPA_VIEWBOX, posicionarChamada, setorPizza, marcadoresSemColisao } from "@/lib/mapa-timelapse";
+import { fatiasVotos, interpolarFatias, MAPA_VIEWBOX, posicionarChamada, setorPizza, marcadoresSemColisao } from "@/lib/mapa-timelapse";
 import { fmtInt, fmtPct } from "@/lib/format";
 import { UFS, scopeName, type Scope, type UF } from "@/lib/ufs";
 import type { ApuracaoResponse } from "@/lib/types";
@@ -21,6 +21,28 @@ const shapes = geo.features.map((f:UfFeature) => {
 const marcadores = marcadoresSemColisao(shapes);
 const COR:Record<string,string> = { "13":"#ef3340", "22":"#6269ef" };
 
+function useFatiasAnimadas(ufs: ApuracaoResponse["ufs"]) {
+  const alvos = useMemo(() => shapes.map(s => fatiasVotos(ufs[s.uf])), [ufs]);
+  const [fatias, setFatias] = useState(alvos);
+  const exibidas = useRef(alvos);
+  useEffect(() => {
+    const origem = exibidas.current;
+    const inicio = performance.now();
+    const movimento = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let quadro: number;
+    const desenhar = (agora: number) => {
+      const t = movimento.matches ? 1 : Math.min(1, (agora - inicio) / 220);
+      const proximas = t === 1 ? alvos : alvos.map((f, i) => interpolarFatias(origem[i], f, t));
+      exibidas.current = proximas;
+      setFatias(proximas);
+      if (t < 1) quadro = requestAnimationFrame(desenhar);
+    };
+    quadro = requestAnimationFrame(desenhar);
+    return () => cancelAnimationFrame(quadro);
+  }, [alvos]);
+  return fatias;
+}
+
 export default function MapaTimelapse({ apuracao, scope, onSelect }: {
   apuracao:ApuracaoResponse;
   scope:Scope;
@@ -31,6 +53,7 @@ export default function MapaTimelapse({ apuracao, scope, onSelect }: {
   const cartao = useRef<HTMLDivElement>(null);
   const seletor = useRef<HTMLSelectElement>(null);
   const [medidas,setMedidas] = useState({ largura:0, altura:0, cartaoAltura:320 });
+  const fatiasAnimadas = useFatiasAnimadas(apuracao.ufs);
   const candidatos = apuracao.nacional?.candidatos.filter(c=>c.numero==="13"||c.numero==="22")??[];
   const detalhe = scope==="zz" ? apuracao.exterior : scope==="br" ? null : apuracao.ufs[scope];
   const estado = shapes.find(s=>s.uf===scope);
@@ -74,8 +97,8 @@ export default function MapaTimelapse({ apuracao, scope, onSelect }: {
               {shapes.map(s=><clipPath key={s.uf} id={`${id}-uf-${s.uf}`}><path d={s.d}/></clipPath>)}
             </defs>
 
-            {shapes.map(s=>{
-              const r=apuracao.ufs[s.uf], fatias=fatiasVotos(r), ativo=scope===s.uf;
+            {shapes.map((s, i)=>{
+              const r=apuracao.ufs[s.uf], fatias=fatiasAnimadas[i], ativo=scope===s.uf;
               const descricao=`${UFS[s.uf]}: ${fmtPct(r?.pctTotalizado??0)} apurado; ${candidatos.map(c=>{const d=r?.candidatos.find(x=>x.numero===c.numero);return `${c.nome}, ${fmtInt(d?.votos??0)} votos, ${fmtPct(d?.pct??0)} dos válidos`;}).join("; ")}`;
               return <g key={s.uf} role="button" tabIndex={0} aria-label={descricao} aria-pressed={ativo} aria-controls={ativo ? `${id}-detalhe` : undefined} className={styles.estado} data-selecionado={ativo} onClick={()=>selecionar(s.uf)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selecionar(s.uf);}}}>
                 <g clipPath={`url(#${id}-uf-${s.uf})`}>
@@ -87,8 +110,8 @@ export default function MapaTimelapse({ apuracao, scope, onSelect }: {
               </g>;
             })}
 
-            {marcadores.map(s=>{
-              const r=apuracao.ufs[s.uf], fatias=fatiasVotos(r), ativo=scope===s.uf;
+            {marcadores.map((s, i)=>{
+              const fatias=fatiasAnimadas[i], ativo=scope===s.uf;
               return <g key={`pizza-${s.uf}`} transform={`translate(${s.x},${s.y})`} pointerEvents="none" aria-hidden="true">
                 <circle r={s.raio+1} fill={ativo ? "#FFDF00" : "#d4e8dc"}/>
                 {fatias.map(f=><path key={f.numero} d={setorPizza(0,0,s.raio,f.inicio,f.fracao)} fill={COR[f.numero]}/>)}

@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fatiasVotos, setorPizza, marcadoresSemColisao, posicionarChamada } from "../src/lib/mapa-timelapse.ts";
+import * as mapa from "../src/lib/mapa-timelapse.ts";
+
+test("animated slices move continuously between historical proportions, including empty states and reversals", () => {
+  assert.equal(typeof mapa.interpolarFatias, "function", "Falta interpolar as fatias entre snapshots");
+  const antes = fatiasVotos({validos:100,candidatos:[{numero:"13",votos:25},{numero:"22",votos:75}]});
+  const depois = fatiasVotos({validos:100,candidatos:[{numero:"13",votos:75},{numero:"22",votos:25}]});
+  const meio = mapa.interpolarFatias(antes, depois, 0.5);
+  assert.deepEqual(meio, [{numero:"13",inicio:0,fracao:0.5},{numero:"22",inicio:0.5,fracao:0.5}]);
+  assert.deepEqual(mapa.interpolarFatias(antes, depois, -1), antes);
+  assert.deepEqual(mapa.interpolarFatias(antes, depois, 2), depois);
+  assert.deepEqual(mapa.interpolarFatias(depois, antes, 1), antes);
+  const vazio = fatiasVotos();
+  assert.deepEqual(mapa.interpolarFatias(depois, vazio, 1), vazio);
+  assert.deepEqual(mapa.interpolarFatias(vazio, depois, 1), depois);
+});
 
 test("pie sectors follow valid candidate votes and preserve zero/complete states", () => {
   const r={validos:100,candidatos:[{numero:"13",votos:25},{numero:"22",votos:75}]};

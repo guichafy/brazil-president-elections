@@ -11,6 +11,19 @@ export function fatiasVotos(r?: Pick<ResultadoAbrangencia,"validos"|"candidatos"
   });
 }
 
+/** Interpola ângulos, mantendo as fatias contíguas mesmo em uma virada ou salto para trás. */
+export function interpolarFatias(origem: ReturnType<typeof fatiasVotos>, destino: ReturnType<typeof fatiasVotos>, progresso: number) {
+  const t = Math.max(0, Math.min(1, progresso));
+  let inicio = 0;
+  return destino.map(fatia => {
+    const antes = origem.find(f => f.numero === fatia.numero)?.fracao ?? 0;
+    const fracao = antes + (fatia.fracao - antes) * t;
+    const interpolada = { numero: fatia.numero, inicio, fracao };
+    inicio += fracao;
+    return interpolada;
+  });
+}
+
 /** Setor circular, iniciado no topo, inclusive os casos de zero e círculo completo. */
 export function setorPizza(cx: number, cy: number, r: number, inicio: number, fracao: number): string {
   if (!Number.isFinite(fracao) || fracao <= 0) return "";

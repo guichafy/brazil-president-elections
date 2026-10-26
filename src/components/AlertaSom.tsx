@@ -4,14 +4,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import AnimacaoHumor from "./AnimacaoHumor";
 import { AnimacaoLula, type EventoVitoria } from "./AvisoVitoria";
 import { avaliarHumor, LULA, lulaVenceu, type EventoHumor, type Variacao } from "@/lib/humor";
-import { arpejoFeliz, audioLiberado, desbloquearAudio, pararSom, pausarSom,retomarSom,posicionarSom,somFeliz, somTriste, somVitoria } from "@/lib/sons";
+import { arpejoFeliz, audioLiberado, desbloquearAudio, pararSom, pausarSom,retomarSom,posicionarSom,somFeliz, somTriste } from "@/lib/sons";
 import type { ResultadoAbrangencia } from "@/lib/types";
-import { carregarReplayCliente } from "@/lib/replay-client";
+import { iniciarVitoriaComAudio } from "@/lib/replay-client";
 import { DURACAO_COMEMORACAO_MS,posicaoTimelapse } from "@/lib/timelapse";
 
 const AVISO_MS = 15_000; // sem som; com som, o aviso dura o mesmo que o áudio sorteado
 // depois de um aviso, as viradas seguintes dentro deste intervalo são descartadas (sem aviso nem áudio)
 const INTERVALO_AVISOS_MS = 5 * 60_000;
+
+function vitoriaPronta(nacional: ResultadoAbrangencia | null, teste = false, id = Date.now()): EventoVitoria {
+  const lula = nacional?.candidatos.find(c => c.numero === LULA);
+  return {
+    id, duracaoMs:DURACAO_COMEMORACAO_MS, iniciadoEm:null, posicaoMs:0,
+    pausado:true, aguardandoInicio:true, preparando:false, semSom:true,
+    eleito:nacional?.turno === "2" && !!lula?.eleito,
+    pct:lula?.pct ?? 50.6, votos:lula?.votos ?? 0, teste,
+  };
+}
 
 /**
  * Mantém os testes de som e a comemoração a partir do resultado nacional arquivado.
@@ -19,14 +29,16 @@ const INTERVALO_AVISOS_MS = 5 * 60_000;
  * Avisa no máximo uma vez a cada 5 minutos: nada fica na fila para depois.
  * A vitória do Lula fura esse intervalo, comemora uma vez só (a pausa só adia) e encerra os avisos de sobe e desce.
  */
-export function useAlertaSom(pausado = false) {
+export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangencia | null = null) {
   // ligado por padrão; o navegador só libera o áudio no 1º gesto do usuário na página
   const [ativo, setAtivo] = useState(true);
   const [liberado, setLiberado] = useState(false);
   const [evento, setEvento] = useState<EventoAviso | null>(null);
-  const [vitoria, setVitoria] = useState<EventoVitoria | null>(null);
-  const comemorou = useRef(false);
-  const anterior = useRef<ResultadoAbrangencia | null>(null);
+  // O Play já faz parte do HTML estático; o relógio e o áudio ainda aguardam o clique.
+  const [vitoria, setVitoria] = useState<EventoVitoria | null>(() =>
+    !pausado && nacionalInicial && lulaVenceu(nacionalInicial) ? vitoriaPronta(nacionalInicial, false, 0) : null);
+  const comemorou = useRef(!!vitoria);
+  const anterior = useRef<ResultadoAbrangencia | null>(nacionalInicial);
   const ultimoAviso = useRef(-Infinity);
   const ativoRef = useRef(true);
   const pausadoRef = useRef(pausado);
@@ -35,42 +47,11 @@ export function useAlertaSom(pausado = false) {
     pausadoRef.current = pausado;
   });
 
-  // qualquer clique, toque ou tecla na página libera o áudio
-  useEffect(() => {
-    if (liberado) return;
-    const liberar = async () => {
-      if (await desbloquearAudio()) setLiberado(true);
-    };
-    const eventos = ["pointerdown", "keydown", "touchend"] as const;
-    eventos.forEach((e) => window.addEventListener(e, liberar));
-    return () => eventos.forEach((e) => window.removeEventListener(e, liberar));
-  }, [liberado]);
-
   const comemorar = useCallback((nacional: ResultadoAbrangencia | null, teste = false) => {
-    const lula = nacional?.candidatos.find((c) => c.numero === LULA);
     pararSom();
     setEvento(null);
-    const id = Date.now();
-    const pedido = ++pedidoVitoria.current;
-    setVitoria({
-      id,
-      duracaoMs: DURACAO_COMEMORACAO_MS,
-      iniciadoEm: null,
-      posicaoMs:0,
-      pausado:false,
-      eleito: nacional?.turno === "2" && !!lula?.eleito,
-      pct: lula?.pct ?? 50.6,
-      votos: lula?.votos ?? 0,
-      teste,
-      // som ligado mas ainda bloqueado pelo navegador (ninguém tocou na página)
-      semSom: ativoRef.current && !audioLiberado(),
-    });
-    void carregarReplayCliente().then(async () => {
-      if (pedido !== pedidoVitoria.current) return;
-      const duracao = ativoRef.current ? await somVitoria() : null;
-      if (pedido !== pedidoVitoria.current) return;
-      setVitoria(v => v?.id === id ? { ...v, iniciadoEm: Date.now(), semSom: ativoRef.current && !duracao } : v);
-    }).catch(() => { /* O modal oferece a repetição do carregamento. */ });
+    pedidoVitoria.current++;
+    setVitoria(vitoriaPronta(nacional, teste));
   }, []);
 
   const onNacional = useCallback(
@@ -115,19 +96,17 @@ export function useAlertaSom(pausado = false) {
   const ouvirVitoria = useCallback(async () => {
     const pedido = ++pedidoVitoria.current;
     pararSom();
-    if (!(await desbloquearAudio())) return;
-    if (pedido !== pedidoVitoria.current) return;
-    ativoRef.current = true;
-    setAtivo(true);
-    setLiberado(true);
-    setVitoria(v => v && { ...v, iniciadoEm: null,posicaoMs:0,pausado:false });
+    setVitoria(v => v && { ...v, iniciadoEm: null, posicaoMs:0, pausado:true, aguardandoInicio:true, preparando:true, erroAudio:undefined });
     try {
-      await carregarReplayCliente();
+      if (!(await iniciarVitoriaComAudio(() => pedido === pedidoVitoria.current))) return;
+      ativoRef.current = true;
+      setAtivo(true);
+      setLiberado(true);
+      setVitoria(v => v && { ...v, iniciadoEm: Date.now(), pausado:false, aguardandoInicio:false, preparando:false, semSom:false });
+    } catch (erro) {
       if (pedido !== pedidoVitoria.current) return;
-      const duracao = await somVitoria();
-      if (pedido !== pedidoVitoria.current) return;
-      setVitoria(v => v && { ...v, iniciadoEm: Date.now(), semSom: !duracao });
-    } catch { /* O modal mantém a opção de tentar novamente. */ }
+      setVitoria(v => v && { ...v, preparando:false, erroAudio:erro instanceof Error ? erro.message : "Não foi possível iniciar. Tente novamente." });
+    }
   }, []);
 
   const alternarVitoria=useCallback(async()=>{
@@ -168,8 +147,13 @@ export function useAlertaSom(pausado = false) {
   }, []);
 
   const alternar = useCallback(async () => {
-    const ligar = !ativoRef.current;
+    const ligar = !ativoRef.current || !audioLiberado();
     if ((await definir(ligar)) && ligar) arpejoFeliz(); // confirmação curta; os áudios ficam para os eventos
+  }, [definir]);
+
+  const testarSom = useCallback(async (feliz: boolean) => {
+    if (!(await definir(true))) return;
+    await (feliz ? somFeliz() : somTriste());
   }, [definir]);
 
   // some com o aviso quando o áudio termina
@@ -185,7 +169,7 @@ export function useAlertaSom(pausado = false) {
     return () => clearTimeout(t);
   }, [vitoria, fecharVitoria]);
 
-  return { ativo, liberado, alternar, definir, evento, fecharAviso, onNacional, vitoria, fecharVitoria, ouvirVitoria, testarVitoria,alternarVitoria,posicionarVitoria };
+  return { ativo, liberado, alternar, definir, testarSom, evento, fecharAviso, onNacional, vitoria, fecharVitoria, ouvirVitoria, testarVitoria,alternarVitoria,posicionarVitoria };
 }
 
 export function BotaoSom({
@@ -193,31 +177,33 @@ export function BotaoSom({
   liberado,
   alternar,
   testarVitoria,
+  testarSom,
 }: {
   ativo: boolean;
   liberado: boolean;
   alternar: () => void;
   testarVitoria: () => void;
+  testarSom: (feliz: boolean) => void;
 }) {
-  // ligado mas ainda bloqueado pelo navegador: o clique (que já libera o áudio) não deve desligar
+  // Enquanto o contexto estiver bloqueado, o botão libera o áudio sem desligar o som.
   const aguardando = ativo && !liberado;
   return (
     <div className="flex items-center gap-2">
       <button
         type="button"
-        onClick={aguardando ? undefined : alternar}
+        onClick={alternar}
         aria-pressed={ativo}
         className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${ativo ? "bg-white text-accent" : "bg-white/15 hover:bg-white/25"}`}
         title="Áudio do Lula: Lula sobe e Flávio cai · Áudio do Bolsonaro: Lula cai e Flávio sobe"
       >
-        {aguardando ? "🔔 Toque na página para liberar o som" : ativo ? "🔔 Som ligado" : "🔕 Ativar som"}
+        {aguardando ? "🔔 Liberar som" : ativo ? "🔔 Som ligado" : "🔕 Ativar som"}
       </button>
       {ativo && (
         <span className="flex gap-1 text-xs">
-          <button type="button" onClick={somFeliz} className="rounded px-1 hover:bg-white/20" title="Testar áudio do Lula">
+          <button type="button" onClick={() => testarSom(true)} className="rounded px-1 hover:bg-white/20" title="Testar áudio do Lula">
             🙂
           </button>
-          <button type="button" onClick={somTriste} className="rounded px-1 hover:bg-white/20" title="Testar áudio do Bolsonaro">
+          <button type="button" onClick={() => testarSom(false)} className="rounded px-1 hover:bg-white/20" title="Testar áudio do Bolsonaro">
             🙁
           </button>
           <button type="button" onClick={testarVitoria} className="rounded px-1 hover:bg-white/20" title="Testar comemoração da vitória do Lula">
