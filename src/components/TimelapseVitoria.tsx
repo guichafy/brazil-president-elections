@@ -55,6 +55,7 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
   const restante = Math.ceil((DURACAO_COMEMORACAO_MS - decorrido) / 1000);
   const carregando=iniciadoEm===null&&!pausado;
   const resultadoExibido = scope==="br" ? nacional : scope==="zz" ? atual?.exterior : atual?.ufs[scope];
+  const eleito = resultadoFinal.nacional?.turno === "2" ? resultadoFinal.nacional.candidatos.find(c => c.eleito) : undefined;
 
   if (!dados || !nacional || !roteiro) return (
     <div className="flex min-h-80 items-center justify-center text-center">
@@ -81,7 +82,7 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
         <span className="tabular">{Math.floor(decorrido/1000)}s / 90s</span>
       </div>
       {encerrada ? <div className={styles.conclusao}>
-        <p role="status">Timelapse concluído. Explore o resultado em detalhes.</p>
+        <p role="status"><strong>Resultado final{eleito ? ` · ${eleito.nome} eleito pelo TSE` : " · apuração concluída"}</strong></p>
         <button type="button" onClick={onAnalise}>Ir para visão analítica →</button>
       </div> : <p className={styles.nota}>A música continua durante a pausa.</p>}
 

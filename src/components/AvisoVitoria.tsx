@@ -277,8 +277,6 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
           </div>
           <div className={styles.titulo}>
             {vitoria.teste && <p className="text-xs text-white/65">Reprodução da comemoração</p>}
-            <h1>Cada estado. Cada virada.</h1>
-            <p>Resultado final: {vitoria.pct.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% · {vitoria.votos.toLocaleString("pt-BR")} votos{venceuSegundoTurno && vitoria.eleito ? " · eleito pelo TSE" : ""}</p>
           </div>
             <button type="button" onClick={onOuvir} className={styles.reiniciar}>
               {vitoria.semSom ? "🔊 Ouvir e reiniciar os 90 segundos" : "↻ Reiniciar com áudio"}
