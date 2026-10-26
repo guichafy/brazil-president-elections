@@ -11,6 +11,8 @@
     "test": "node --conditions=react-server --import ./tests/register.mjs --test tests/*.test.mjs",
     "verify:export": "node scripts/verify-export.mjs",
     "archive": "node scripts/archive-results.mjs",
+    "archive:municipios": "node scripts/archive-municipios.mjs",
+    "archive:malhas": "node scripts/archive-malhas.mjs",
     "lint": "eslint",
     "recorder": "node scripts/recorder.mjs"
   },

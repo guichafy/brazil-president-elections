@@ -101,9 +101,21 @@ A soma das UFs dá a projeção nacional. A linha do tempo recalcula a projeçã
 https://resultados.tse.jus.br/oficial/ele2026/6257/fotos/br/{sqcand}.jpeg
 ```
 
-## 7. Municípios (para uma próxima etapa)
+## 7. Municípios
 
-`https://resultados.tse.jus.br/oficial/ele2026/6257/config/mun-e006257-cm.json` lista os municípios de cada UF (código TSE `cd` + código IBGE `cdi`). O resultado por município deve seguir o padrão de 2024: `dados/{uf}/{uf}{cdMunicipio}-c0001-e006257-u.json`. Isso ainda não foi validado.
+Validado em 26/10/2026, com a apuração dos dois turnos encerrada.
+
+- **Catálogo**: `https://resultados.tse.jus.br/oficial/ele2026/{eleição}/config/mun-e00{eleição}-cm.json`. Para cada abrangência (`abr[].cd` = UF minúscula ou `zz`), `mu[]` traz `cd` (código TSE, 5 dígitos), `cdi` (código IBGE, 7 dígitos; vazio no exterior), `nm`, `c` (`s` na capital) e `z` (zonas). São 5.757 entradas nos dois turnos, com os mesmos códigos: 5.571 municípios e 186 cidades no exterior.
+- **Resultado**: `https://resultados.tse.jus.br/oficial/ele2026/{eleição}/dados/{uf}/{uf}{cd}-c0001-e00{eleição}-u.json`. Ex.: São Paulo = `sp/sp71072-c0001-e006258-u.json`. O formato é o mesmo do arquivo da UF (seção 2). O sufixo `-v` dá 404.
+- **Andamento**: `dados/{uf}/{uf}-e00{eleição}-ab.json` traz seções e eleitorado totalizados e a hora de cada município, mas não traz votos.
+- **Dados abertos** (`cdn.tse.jus.br/estatistica/sead/odsele/votacao_candidato_munzona/votacao_candidato_munzona_2026.zip`): cerca de 450 MB, com todos os cargos. A versão de 25/10 às 13:16 (Brasília) ainda não tinha o 2º turno.
+- **Pegadinha**: no exterior há cidade com `te=3`, `c=0` e `a=0`, então `c + a = te` não vale para todos os municípios.
+
+A captura é manual, como a das UFs: `npm run archive:municipios -- [6257|6258]` baixa os municípios de 5 em 5, confere cada um (100% das seções e votos coerentes) e confere a soma de cada UF com `data/resultados-<eleição>.json`. Só então grava `data/municipios-<eleição>.json`, compacto, com uma linha por município (cerca de 1 MB por turno).
+
+A malha vem do IBGE: `servicodados.ibge.gov.br/api/v3/malhas/estados/{UF}?intrarregiao=municipio&qualidade=minima&formato=application/vnd.geo+json`, que traz o código IBGE em `codarea`. O comando `npm run archive:malhas` grava `data/malhas/<uf>.json` com 3 casas decimais (cerca de 2,9 MB no total) e confere os códigos com o catálogo. Boa Esperança do Norte (MT, `5101837`) ainda não está na malha, por isso aparece só na tabela.
+
+No build, `src/lib/municipios.ts` projeta os contornos (projeção plana, com a longitude corrigida pelo cosseno da latitude central da UF) e exporta `dados/municipios/<uf>.json` para as 27 UFs e o exterior. No 2º turno, cada município traz também os votos dos finalistas no 1º turno. Não há histórico por município, porque o gravador só registrou Brasil, UFs e exterior. Por isso, o drill-down mostra apenas o resultado final.
 
 ## 8. Como a aplicação usa isso
 
@@ -111,8 +123,10 @@ Desde a migração para SSG, o site usa um arquivo permanente, sem proxy ou cons
 
 ```
 TSE CDN ──(captura manual: npm run archive)──> data/resultados-<eleição>.json + public/fotos/
-Snapshots + eleitorado + referência 2022 + resultado completo ──(next build)──> out/
-GitHub Pages ──> HTML inicial + assets locais + JSON de timeline por abrangência
+TSE CDN ──(captura manual: npm run archive:municipios)──> data/municipios-<eleição>.json
+IBGE ──(captura manual: npm run archive:malhas)──> data/malhas/<uf>.json
+Snapshots + eleitorado + referência 2022 + resultado completo + municípios ──(next build)──> out/
+GitHub Pages ──> HTML inicial + assets locais + JSON de timeline e de municípios por abrangência
 ```
 
 As respostas brutas das 29 abrangências e as fotos dos dois turnos ficam versionadas. A captura exige 100% das seções e finalização nacional, mas preserva os indicadores regionais originais: Roraima tem `tf=n` no segundo turno mesmo com 100% apurado. Metadados como nomes, partido, coligação, vice e situação oficial vêm dos arquivos completos, não são reconstruídos a partir dos snapshots.

@@ -120,3 +120,29 @@ export interface ReplayResponse {
     projecao: ProjecaoNacional | null;
   }[];
 }
+
+/** Resultado final de um município. Não há histórico: o gravador só registrou Brasil, UFs e exterior. */
+export interface Municipio {
+  cd: string; // código do TSE
+  ibge: string; // vazio no exterior
+  nome: string;
+  capital: boolean;
+  dataHora: string; // totalização, em horário de Brasília ("" no exterior, que usa o fuso de cada país)
+  finalizado: boolean;
+  eleitorado: number;
+  comparecimento: number;
+  abstencao: number;
+  validos: number;
+  brancos: number;
+  nulos: number;
+  votos: number[]; // na ordem de MunicipiosResponse.candidatos
+  primeiroTurno?: { validos: number; votos: number[] }; // mesmos candidatos, no 1º turno
+  d?: string; // contorno SVG; ausente se o município não estiver na malha do IBGE
+}
+
+export interface MunicipiosResponse {
+  scope: Scope;
+  candidatos: string[]; // números
+  mapa: { largura: number; altura: number } | null; // null no exterior
+  municipios: Municipio[];
+}

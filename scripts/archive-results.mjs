@@ -2,25 +2,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { SCOPES, candidates, validateArchive, validatePhoto } from "./lib/archive.mjs";
+import { SCOPES, candidates, download, validateArchive, validatePhoto } from "./lib/archive.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const elections = process.argv.slice(2);
 if (!elections.length) elections.push("6257", "6258");
 if (elections.some((id) => !["6257", "6258"].includes(id))) throw new Error("Use: npm run archive -- [6257|6258]");
-
-async function download(url) {
-  for (let attempt = 1; ; attempt++) {
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
-      if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-      return Buffer.from(await res.arrayBuffer());
-    } catch (err) {
-      if (attempt === 3) throw err;
-      console.warn(`Nova tentativa ${attempt + 1}: ${url}`);
-    }
-  }
-}
 
 for (const eleicao of elections) {
   const base = `https://resultados.tse.jus.br/oficial/ele2026/${eleicao}`;

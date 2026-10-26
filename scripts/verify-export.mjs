@@ -28,6 +28,14 @@ for (const scope of SCOPES) {
     assert.equal(timeline.pontos.at(-1).votos[c.n], Number(c.vap), `${scope}: histórico não termina no resultado arquivado`);
   }
 }
+for (const scope of SCOPES.filter((s) => s !== "br")) {
+  const municipios = JSON.parse(await readFile(`out/dados/municipios/${scope}.json`, "utf8"));
+  assert.equal(municipios.scope, scope);
+  for (const c of candidates(archive.abrangencias[scope])) {
+    const i = municipios.candidatos.indexOf(c.n);
+    assert.equal(municipios.municipios.reduce((n, m) => n + m.votos[i], 0), Number(c.vap), `${scope}: municípios não somam o resultado arquivado`);
+  }
+}
 const replay = JSON.parse(await readFile("out/dados/replay.json", "utf8"));
 assert(replay.pontos.length > 1 && replay.snapshots.length > 0, "Reprodução ausente do artefato");
 for (const ponto of replay.pontos) assert.equal(replay.snapshots[ponto.indices.br].scope, "br");
@@ -36,4 +44,4 @@ for (const id of ["6257", "6258"]) {
   for (const c of candidates(a.abrangencias.br)) validatePhoto(await readFile(`out/fotos/${id}/${c.sqcand}.jpeg`));
 }
 for (const file of ["sons/lula.mp3", "sons/lula-bota-pra-virar.mp3", "sons/bolsonaro.mp3", "sons/lula-vitoria.mp3", "sons/flavio-apreensao.mp3", "imagens/lula.png", "lottie/confete.json", "lottie/fogos.json", "lottie/urna.json", "lottie/bandeira.json"]) await access(join("out", file));
-console.log(`Export validado: HTML com resultado e slider, replay, 29 timelines, 14 fotos e assets locais; basePath=${base || "/"}.`);
+console.log(`Export validado: HTML com resultado e slider, replay, 29 timelines, municípios de 28 abrangências, 14 fotos e assets locais; basePath=${base || "/"}.`);

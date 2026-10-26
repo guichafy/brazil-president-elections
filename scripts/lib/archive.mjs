@@ -2,6 +2,19 @@ import assert from "node:assert/strict";
 
 export const SCOPES = ["br", "ac", "al", "am", "ap", "ba", "ce", "df", "es", "go", "ma", "mg", "ms", "mt", "pa", "pb", "pe", "pi", "pr", "rj", "rn", "ro", "rr", "rs", "sc", "se", "sp", "to", "zz"];
 
+export async function download(url) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+      if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+      return Buffer.from(await res.arrayBuffer());
+    } catch (err) {
+      if (attempt === 3) throw err;
+      console.warn(`Nova tentativa ${attempt + 1}: ${url}`);
+    }
+  }
+}
+
 export function candidates(raw) {
   return raw.carg.flatMap((cargo) => cargo.agr.flatMap((agr) => agr.par.flatMap((par) => par.cand)));
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { assetPath } from "@/lib/assets";
-import { fmtInt, fmtPct } from "@/lib/format";
+import { fmtInt, fmtPct, primeiroNome } from "@/lib/format";
 import { aplicarReplay } from "@/lib/replay";
 import {pararSom} from "@/lib/sons";
 import type { ApuracaoResponse, ComparacaoResponse, ReplayResponse, ResultadoAbrangencia, TimelineResponse } from "@/lib/types";
@@ -13,9 +13,11 @@ import BrazilMap, { DecisaoInfo, estiloCss, ufEstilo, type MapMode } from "./Bra
 import CandidateList from "./CandidateList";
 import Comparacao from "./Comparacao";
 import Onboarding, { useOnboarding } from "./Onboarding";
+import Municipios from "./Municipios";
 import Placar from "./Placar";
 import Projecao from "./Projecao";
 import ReplayControls from "./ReplayControls";
+import ResumoVotos from "./ResumoVotos";
 import Timeline, { Segmented } from "./Timeline";
 
 type Vista = "evolucao" | "turnos";
@@ -90,6 +92,8 @@ export default function Apuracao({
 
   const atual: ResultadoAbrangencia | null | undefined =
     scope === "br" ? d?.nacional : scope === "zz" ? d?.exterior : d?.ufs[scope];
+  // Os municípios só têm o resultado final, então comparam com a UF final mesmo durante o replay.
+  const ufFinal = scope === "br" ? null : scope === "zz" ? resultadoFinal.exterior : resultadoFinal.ufs[scope];
 
   const mapMode: MapMode = useMemo(() => {
     const c = d?.nacional?.candidatos.find((x) => x.numero === destaque);
@@ -198,13 +202,18 @@ export default function Apuracao({
                   <p className="mt-1 text-sm text-muted">Consulte a evolução dos votos ou compare os resultados entre os turnos de 2026.</p>
                 </div>
                 {scope !== "br" && (
-                  <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
-                    ← Voltar para Brasil
-                  </button>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    <a href="#municipios" className="text-sm font-semibold text-accent hover:underline">
+                      {scope === "zz" ? "Cidades" : "Municípios"} ↓
+                    </a>
+                    <button type="button" onClick={() => setScope("br")} className="text-sm font-semibold text-accent hover:underline">
+                      ← Voltar para Brasil
+                    </button>
+                  </div>
                 )}
               </div>
               <Abas value={vistaAtiva} onChange={selecionarVista} options={abas} painelId={painelId} />
-              <p className="mb-5 text-xs text-muted">A comparação entre turnos usa os dados do Brasil. Selecione um estado no mapa para consultar a evolução dele.</p>
+              <p className="mb-5 text-xs text-muted">A comparação entre turnos usa os dados do Brasil. Selecione um estado no mapa para consultar a evolução dele e o resultado de cada município.</p>
               <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
                 <div>
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -295,6 +304,10 @@ export default function Apuracao({
             </>
           )}
 
+          {scope !== "br" && ufFinal && (
+            <Municipios key={scope} scope={scope} uf={ufFinal} destaque={destaque} onDestaque={setDestaque} historicoAtivo={historicoAtivo} />
+          )}
+
           <footer className="mt-6 text-center text-xs text-muted">
             Fonte: Tribunal Superior Eleitoral (resultados.tse.jus.br) · eleição {d.eleicao} · resultado e histórico preservados
           </footer>
@@ -381,25 +394,6 @@ function ProgressoBar({ r, controleReplay }: { r: ResultadoAbrangencia; controle
   );
 }
 
-function ResumoVotos({ r }: { r: ResultadoAbrangencia }) {
-  const itens = [
-    { label: "Válidos", valor: fmtInt(r.validos) },
-    { label: "Brancos", valor: fmtPct(r.pctBrancos) },
-    { label: "Nulos", valor: fmtPct(r.pctNulos) },
-    { label: "Abstenção", valor: r.abstencaoDisponivel === false ? "Não registrada" : fmtPct(r.pctAbstencao) },
-  ];
-  return (
-    <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3 sm:grid-cols-4">
-      {itens.map((i) => (
-        <div key={i.label}>
-          <dt className="text-xs text-muted">{i.label}</dt>
-          <dd className="font-semibold tabular">{i.valor}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 function Legenda({ d }: { d: ApuracaoResponse }) {
   const ufs = Object.values(d.ufs);
   const decididos = ufs.filter((r) => r?.decisao.garantido).length;
@@ -470,12 +464,6 @@ function UfGrid({
       })}
     </div>
   );
-}
-
-/** "FLAVIO BOLSONARO" -> "Flavio" */
-function primeiroNome(nome: string) {
-  const p = nome.split(" ")[0];
-  return p.charAt(0) + p.slice(1).toLowerCase();
 }
 
 function Skeleton() {
