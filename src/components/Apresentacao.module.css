@@ -124,6 +124,8 @@
 }
 
 @media (max-width: 699px) {
+  .festa { opacity: 0.25; mask-image: linear-gradient(to bottom, transparent 320px, black 420px); }
+  .fogos { display: none; }
   .apresentacao:has([data-estado="true"]) { height: auto; }
   .filme:has([data-estado="true"]) { flex: none; }
   .cabecalho { grid-template-columns: 36px minmax(0, 1fr) 96px; gap: 8px; padding-inline: 0 32px; }

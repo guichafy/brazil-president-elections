@@ -237,8 +237,8 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlt
       {!vitoria.aguardandoInicio && <>
         <div className={styles.festa} aria-hidden="true">
           <Arquivo src="/lottie/confete.json" cobrir className="pointer-events-none absolute inset-0" />
-          <Arquivo src="/lottie/fogos.json" className="pointer-events-none absolute top-[3%] left-[2%] size-40 sm:size-64" />
-          <Arquivo src="/lottie/fogos.json" className="pointer-events-none absolute top-[12%] right-[2%] size-32 sm:size-56" />
+          <Arquivo src="/lottie/fogos.json" className={`${styles.fogos} pointer-events-none absolute top-[3%] left-[2%] size-40 sm:size-64`} />
+          <Arquivo src="/lottie/fogos.json" className={`${styles.fogos} pointer-events-none absolute top-[12%] right-[2%] size-32 sm:size-56`} />
         </div>
       </>}
 
