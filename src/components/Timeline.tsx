@@ -31,9 +31,6 @@ const horaFmt = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-d
 export default function Timeline({ pontos, candidatos, atualizadoEm, momento }: Props) {
   const [eixo, setEixo] = useState<Eixo>("apurado");
   const [foco, setFoco] = useState<"duelo" | "top" | "todos">("duelo");
-  const [mostrarProj, setMostrarProj] = useState(true);
-  const temProj = pontos.some((p) => p.proj);
-  const comProj = temProj && mostrarProj ? candidatos.slice(0, 2) : [];
 
   const visiveis = foco === "todos" ? candidatos : candidatos.slice(0, foco === "duelo" ? 2 : TOP_N);
 
@@ -43,27 +40,25 @@ export default function Timeline({ pontos, candidatos, atualizadoEm, momento }: 
         x: eixo === "apurado" ? p.pctTotalizado : new Date(p.t).getTime(),
         ponto: p,
         ...Object.fromEntries(Object.entries(p.pct).map(([n, v]) => [`c${n}`, v])),
-        ...Object.fromEntries(Object.entries(p.proj ?? {}).map(([n, v]) => [`p${n}`, v])),
       })),
     [pontos, eixo],
   );
 
-  // no modo 1º × 2º o eixo Y aproxima na faixa da disputa (incluindo a projeção e os 50%)
+  // no modo 1º × 2º o eixo Y aproxima na faixa da disputa (incluindo os 50%)
   const [yMin, yMax] = useMemo(() => {
     let lo = Infinity;
     let hi = 0;
     for (const p of pontos)
       for (const c of visiveis) {
-        for (const v of [p.pct[c.numero], comProj.length ? p.proj?.[c.numero] : undefined]) {
-          if (v === undefined) continue;
-          lo = Math.min(lo, v);
-          hi = Math.max(hi, v);
-        }
+        const v = p.pct[c.numero];
+        if (v === undefined) continue;
+        lo = Math.min(lo, v);
+        hi = Math.max(hi, v);
       }
     if (foco !== "duelo" || !Number.isFinite(lo)) return [0, Math.min(100, Math.ceil((hi + 5) / 10) * 10)];
     hi = Math.max(hi, 50);
     return [Math.max(0, Math.floor(lo - 1)), Math.min(100, Math.ceil(hi + 1))];
-  }, [pontos, visiveis, foco, comProj.length]);
+  }, [pontos, visiveis, foco]);
 
   if (pontos.length < 2) return <EsperaTimeline candidatos={candidatos} atualizadoEm={atualizadoEm} />;
 
@@ -80,12 +75,6 @@ export default function Timeline({ pontos, candidatos, atualizadoEm, momento }: 
             { value: "hora", label: "Horário" },
           ]}
         />
-        {temProj && (
-          <label className="ml-auto flex cursor-pointer items-center gap-2 text-muted">
-            <input type="checkbox" checked={mostrarProj} onChange={(e) => setMostrarProj(e.target.checked)} className="accent-[var(--accent)]" />
-            Projeção para 100% (tracejado)
-          </label>
-        )}
         {candidatos.length > 2 && (
           <Segmented
             value={foco}
@@ -126,21 +115,6 @@ export default function Timeline({ pontos, candidatos, atualizadoEm, momento }: 
             <ReferenceLine y={50} stroke="var(--subtle)" strokeDasharray="4 4" label={{ value: "50%", position: "insideTopLeft", fill: "var(--muted)", fontSize: 11 }} />
             {momento && <ReferenceLine x={eixo === "apurado" ? momento.pctTotalizado : Date.parse(momento.t)} stroke="var(--foreground)" strokeWidth={2} ifOverflow="extendDomain" label={{ value: "Selecionado", position: "insideTopRight", fill: "var(--foreground)", fontSize: 11 }} />}
             <Tooltip content={(props) => <TooltipBox {...props} candidatos={visiveis} />} />
-            {comProj.map((c) => (
-              <Line
-                key={`p${c.numero}`}
-                dataKey={`p${c.numero}`}
-                name={`${c.nome} (projeção)`}
-                stroke={c.cor}
-                strokeWidth={2}
-                strokeDasharray="5 4"
-                strokeOpacity={0.75}
-                dot={false}
-                activeDot={{ r: 4, stroke: "var(--surface)", strokeWidth: 2 }}
-                isAnimationActive={false}
-                connectNulls
-              />
-            ))}
             {visiveis.map((c, i) => (
               <Line
                 key={c.numero}
@@ -178,12 +152,6 @@ export default function Timeline({ pontos, candidatos, atualizadoEm, momento }: 
             {c.nome}
           </li>
         ))}
-        {comProj.length > 0 && (
-          <li className="flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-2 border-dashed border-muted" />
-            projeção para 100% das urnas, calculada a cada atualização
-          </li>
-        )}
       </ul>
     </div>
   );
@@ -193,7 +161,7 @@ function TooltipBox({ active, payload, candidatos }: Pick<TooltipContentProps, "
   if (!active || !payload?.length) return null;
   const p = (payload[0].payload as { ponto: PontoTimeline }).ponto;
   const linhas = candidatos
-    .map((c) => ({ c, pct: p.pct[c.numero] ?? 0, votos: p.votos[c.numero] ?? 0, proj: p.proj?.[c.numero] }))
+    .map((c) => ({ c, pct: p.pct[c.numero] ?? 0, votos: p.votos[c.numero] ?? 0 }))
     .sort((a, b) => b.pct - a.pct);
   return (
     <div className="w-72 rounded-lg border border-border bg-surface p-3 text-sm shadow-lg">
@@ -201,7 +169,7 @@ function TooltipBox({ active, payload, candidatos }: Pick<TooltipContentProps, "
         <span>{horaFmt.format(new Date(p.t))}</span>
         <span>{fmtPct(p.pctTotalizado)} apurado</span>
       </div>
-      {linhas.map(({ c, pct, votos, proj }) => (
+      {linhas.map(({ c, pct, votos }) => (
         <div key={c.numero} className="flex items-center justify-between gap-2 py-0.5">
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="inline-block size-2.5 shrink-0 rounded-full" style={{ background: c.cor }} />
@@ -209,7 +177,6 @@ function TooltipBox({ active, payload, candidatos }: Pick<TooltipContentProps, "
           </span>
           <span className="shrink-0 text-right tabular">
             <span className="font-semibold">{fmtPct(pct)}</span>
-            {proj !== undefined && <span className="ml-1 text-xs text-muted">→ {fmtPct(proj)}</span>}
             <span className="ml-1 text-xs text-muted">{fmtInt(votos)}</span>
           </span>
         </div>

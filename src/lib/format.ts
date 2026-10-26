@@ -13,3 +13,7 @@ export function primeiroNome(nome: string) {
   const p = nome.split(" ")[0];
   return p.charAt(0) + p.slice(1).toLowerCase();
 }
+
+const sinalFmt = new Intl.NumberFormat("pt-BR", { signDisplay: "exceptZero" });
+/** Inteiro com sinal: "+1.234", "−56" */
+export const fmtSinal = (n: number) => sinalFmt.format(n);

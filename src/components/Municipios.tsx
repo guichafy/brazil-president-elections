@@ -2,7 +2,7 @@
 
 import { Fragment, memo, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { assetPath } from "@/lib/assets";
-import { fmtInt, fmtPct, fmtPP, primeiroNome } from "@/lib/format";
+import { fmtInt, fmtPct, fmtPP, fmtSinal, primeiroNome } from "@/lib/format";
 import type { Candidato, Municipio, MunicipiosResponse, ResultadoAbrangencia } from "@/lib/types";
 import { scopeName, type Scope } from "@/lib/ufs";
 import CandidateList from "./CandidateList";
@@ -49,20 +49,48 @@ interface Linha {
   margem: number; // p.p. entre o 1º e o 2º colocados
   pctComparecimento: number;
   pct1T: number[] | null;
+  ganhoPP: number[] | null; // p.p. dos válidos ganhos desde o 1º turno
+  ganhoVotos: number[] | null;
+  virada: boolean; // quem estava à frente no 1º turno (entre estes candidatos) perdeu no 2º
 }
 
-function calcularLinhas(dados: MunicipiosResponse): Linha[] {
-  return dados.municipios.map((m) => {
-    const pct = m.votos.map((v) => (m.validos ? (v / m.validos) * 100 : 0));
-    const ordem = pct.map((_, i) => i).sort((a, b) => m.votos[b] - m.votos[a]);
-    const [a, b] = ordem;
-    const lider = m.validos && a !== undefined ? a : null;
-    return {
-      m, pct, lider,
-      margem: lider === null ? 0 : pct[a] - (b === undefined ? 0 : pct[b]),
-      pctComparecimento: m.eleitorado ? (m.comparecimento / m.eleitorado) * 100 : 0,
-      pct1T: m.primeiroTurno ? m.primeiroTurno.votos.map((v) => (m.primeiroTurno!.validos ? (v / m.primeiroTurno!.validos) * 100 : 0)) : null,
-    };
+const maisVotado = (votos: number[]) => votos.reduce<number | null>((a, v, i) => (a === null || v > votos[a] ? i : a), null);
+
+function calcularLinha(m: Municipio): Linha {
+  const pct = m.votos.map((v) => (m.validos ? (v / m.validos) * 100 : 0));
+  const ordem = pct.map((_, i) => i).sort((a, b) => m.votos[b] - m.votos[a]);
+  const [a, b] = ordem;
+  const lider = m.validos && a !== undefined ? a : null;
+  const t1 = m.primeiroTurno;
+  const pct1T = t1 ? t1.votos.map((v) => (t1.validos ? (v / t1.validos) * 100 : 0)) : null;
+  const lider1T = t1?.validos ? maisVotado(t1.votos) : null;
+  return {
+    m, pct, lider,
+    margem: lider === null ? 0 : pct[a] - (b === undefined ? 0 : pct[b]),
+    pctComparecimento: m.eleitorado ? (m.comparecimento / m.eleitorado) * 100 : 0,
+    pct1T,
+    ganhoPP: pct1T && pct.map((p, i) => p - pct1T[i]),
+    ganhoVotos: t1 ? m.votos.map((v, i) => v - t1.votos[i]) : null,
+    virada: lider !== null && lider1T !== null && lider !== lider1T,
+  };
+}
+
+/** Soma votos (não percentuais) para que o total bata com o resultado oficial da UF. */
+function somarLinhas(linhas: Linha[]): Linha {
+  const soma = (f: (m: Municipio) => number) => linhas.reduce((n, l) => n + f(l.m), 0);
+  const n = linhas[0]?.m.votos.length ?? 0;
+  const comT1 = linhas.length > 0 && linhas.every((l) => l.m.primeiroTurno);
+  return calcularLinha({
+    cd: "total", ibge: "", nome: "Total", capital: false, dataHora: "", finalizado: true,
+    eleitorado: soma((m) => m.eleitorado), comparecimento: soma((m) => m.comparecimento), abstencao: soma((m) => m.abstencao),
+    validos: soma((m) => m.validos), brancos: soma((m) => m.brancos), nulos: soma((m) => m.nulos),
+    votos: Array.from({ length: n }, (_, i) => soma((m) => m.votos[i])),
+    ...(comT1 ? {
+      primeiroTurno: {
+        validos: soma((m) => m.primeiroTurno!.validos),
+        votos: Array.from({ length: n }, (_, i) => soma((m) => m.primeiroTurno!.votos[i])),
+      },
+    } : {}),
   });
 }
 
@@ -93,7 +121,7 @@ export default function Municipios({
   const { dados, erro, tentarNovamente } = useMunicipios(scope);
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const detalhe = useRef<HTMLDivElement>(null);
-  const linhas = useMemo(() => (dados ? calcularLinhas(dados) : []), [dados]);
+  const linhas = useMemo(() => (dados ? dados.municipios.map(calcularLinha) : []), [dados]);
   const candidatos = useMemo(
     () => (dados?.candidatos ?? []).map((n) => uf.candidatos.find((c) => c.numero === n) ?? candidatoSemDados(n)),
     [dados, uf],
@@ -394,14 +422,16 @@ function DetalheMunicipio({
             <h4 className="mb-1 text-xs font-semibold text-muted">Do 1º para o 2º turno</h4>
             <ul className="space-y-0.5 tabular">
               {principais.map((c) => {
-                const antes = pct1T[candidatos.findIndex((x) => x.numero === c.numero)];
+                const i = candidatos.findIndex((x) => x.numero === c.numero);
+                const antes = pct1T[i];
                 return (
                   <li key={c.numero}>
                     <b>{primeiroNome(c.nome)}</b> {fmtPct(antes)} → {fmtPct(c.pct)}{" "}
-                    <span className="text-muted">({fmtPP(c.pct - antes)})</span>
+                    <span className="text-muted">({fmtPP(c.pct - antes)}{linha.ganhoVotos && `, ${fmtSinal(linha.ganhoVotos[i])} votos`})</span>
                   </li>
                 );
               })}
+              {linha.virada && <li className="text-xs font-semibold">Virada: o vencedor estava atrás no 1º turno.</li>}
               <li className="text-xs text-muted">Os demais candidatos somaram {fmtPct(outros1T)} dos válidos no 1º turno.</li>
             </ul>
           </div>
@@ -411,16 +441,80 @@ function DetalheMunicipio({
   );
 }
 
-type Coluna = "nome" | "eleitorado" | "comparecimento" | "margem" | "ganho" | `c${number}`;
+type Coluna = "nome" | "eleitorado" | "comparecimento" | "margem" | `c${number}` | `g${number}`;
+type Filtro = "todos" | "viradas" | `v${number}`;
 const PAGINA = 30;
 
-function valorColuna(l: Linha, coluna: Coluna, principal: number | undefined): number | string {
+function valorColuna(l: Linha, coluna: Coluna): number | string | null {
   if (coluna === "nome") return semAcento(l.m.nome);
   if (coluna === "eleitorado") return l.m.eleitorado;
   if (coluna === "comparecimento") return l.pctComparecimento;
-  if (coluna === "margem") return l.margem;
-  if (coluna === "ganho") return l.pct1T && principal !== undefined ? l.pct[principal] - l.pct1T[principal] : -Infinity;
-  return l.pct[Number(coluna.slice(1))];
+  if (coluna === "margem") return l.lider === null ? null : l.margem;
+  const i = Number(coluna.slice(1));
+  if (coluna.startsWith("g")) return l.ganhoPP ? l.ganhoPP[i] : null;
+  return l.pct[i];
+}
+
+function ordenar(lista: Linha[], coluna: Coluna, desc: boolean) {
+  const sinal = desc ? -1 : 1;
+  return lista.sort((a, b) => {
+    const va = valorColuna(a, coluna), vb = valorColuna(b, coluna);
+    // Sem dado vai para o fim nos dois sentidos.
+    if (va === null || vb === null) return va === vb ? 0 : va === null ? 1 : -1;
+    return (typeof va === "string" ? va.localeCompare(vb as string, "pt-BR") : va - (vb as number)) * sinal;
+  });
+}
+
+/** Barra do % no 2º turno com uma marca onde o candidato estava no 1º. */
+function BarraPct({ pct, antes, cor }: { pct: number; antes?: number; cor: string }) {
+  return (
+    <div aria-hidden className="relative mt-1 ml-auto h-1.5 w-full min-w-14 max-w-24 rounded-full bg-track">
+      <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, background: cor }} />
+      {antes !== undefined && (
+        <div className="absolute -top-0.5 -bottom-0.5 w-0.5 -translate-x-1/2 rounded-full bg-foreground" style={{ left: `${Math.min(100, antes)}%` }} />
+      )}
+    </div>
+  );
+}
+
+function CelulaGanho({ pp, votos, cor }: { pp: number; votos: number; cor: string }) {
+  return (
+    <>
+      <div className="font-semibold whitespace-nowrap">
+        <span aria-hidden className="mr-1 text-[0.65rem]" style={{ color: cor }}>{pp > 0 ? "▲" : pp < 0 ? "▼" : "•"}</span>
+        {fmtPP(pp)}
+      </div>
+      <div className="text-xs whitespace-nowrap text-muted">{fmtSinal(votos)} votos</div>
+    </>
+  );
+}
+
+const csvTexto = (s: string) => `"${s.replaceAll('"', '""')}"`;
+const csvPct = (n: number) => n.toFixed(2).replace(".", ",");
+
+/** Planilha no formato do Excel em português: ponto e vírgula e vírgula decimal. */
+function baixarCsv(arquivo: string, linhas: Linha[], candidatos: Candidato[], termos: Termos) {
+  const com1T = linhas.some((l) => l.pct1T);
+  const cabecalho = [
+    termos.coluna, "Código TSE", "Código IBGE", "Capital", "Eleitorado", "Comparecimento", "Abstenção", "Válidos", "Brancos", "Nulos",
+    ...candidatos.flatMap((c) => [`${c.nome} (votos)`, `${c.nome} (% válidos)`]),
+    ...(com1T ? candidatos.flatMap((c) => [`${c.nome} 1º turno (votos)`, `${c.nome} 1º turno (% válidos)`, `${c.nome} ganho (p.p.)`]) : []),
+  ];
+  const corpo = linhas.map((l) => [
+    csvTexto(l.m.nome), l.m.cd, l.m.ibge, l.m.capital ? "sim" : "não",
+    l.m.eleitorado, l.m.comparecimento, l.m.abstencao, l.m.validos, l.m.brancos, l.m.nulos,
+    ...candidatos.flatMap((_, i) => [l.m.votos[i], csvPct(l.pct[i])]),
+    ...(com1T ? candidatos.flatMap((_, i) => l.m.primeiroTurno && l.pct1T && l.ganhoPP
+      ? [l.m.primeiroTurno.votos[i], csvPct(l.pct1T[i]), csvPct(l.ganhoPP[i])]
+      : ["", "", ""]) : []),
+  ].join(";"));
+  const blob = new Blob([`﻿${[cabecalho.map(csvTexto).join(";"), ...corpo].join("\r\n")}\r\n`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = arquivo;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function TabelaMunicipios({
@@ -439,110 +533,244 @@ function TabelaMunicipios({
   onSelect: (cd: string | null) => void;
 }) {
   const [busca, setBusca] = useState("");
+  const [filtro, setFiltro] = useState<Filtro>("todos");
   const [ordem, setOrdem] = useState<{ coluna: Coluna; desc: boolean }>({ coluna: "eleitorado", desc: true });
   const [limite, setLimite] = useState(PAGINA);
   // Colunas para os dois mais votados na UF (no 2º turno, os dois finalistas).
   const colunas = uf.candidatos.slice(0, 2).map((c) => candidatos.findIndex((x) => x.numero === c.numero)).filter((i) => i >= 0);
-  const com1T = linhas.some((l) => l.pct1T);
-  const principal = colunas[0];
+  const com1T = linhas.some((l) => l.ganhoPP);
+  const exterior = uf.scope === "zz";
+  const feminino = termos === TERMOS.cidade;
 
-  // O React Compiler memoiza este cálculo.
+  // O React Compiler memoiza estes cálculos.
+  const vitorias = candidatos
+    .map((c, i) => ({ c, i, n: linhas.filter((l) => l.lider === i).length }))
+    .filter((x) => x.n > 0)
+    .sort((a, b) => b.n - a.n);
+  const viradas = linhas.filter((l) => l.virada).length;
   const filtradas = (() => {
     const q = semAcento(busca.trim());
-    const lista = q ? linhas.filter((l) => semAcento(l.m.nome).includes(q)) : [...linhas];
-    const sinal = ordem.desc ? -1 : 1;
-    return lista.sort((a, b) => {
-      const va = valorColuna(a, ordem.coluna, principal), vb = valorColuna(b, ordem.coluna, principal);
-      return (typeof va === "string" ? va.localeCompare(vb as string, "pt-BR") : va - (vb as number)) * sinal;
+    const lista = linhas.filter((l) => {
+      if (q && !semAcento(l.m.nome).includes(q)) return false;
+      if (filtro === "viradas") return l.virada;
+      if (filtro !== "todos") return l.lider === Number(filtro.slice(1));
+      return true;
     });
+    return ordenar(lista, ordem.coluna, ordem.desc);
   })();
+  const recorte = filtro !== "todos" || busca.trim() !== "";
+  const total = filtradas.length ? somarLinhas(filtradas) : null;
 
-  const cabecalho = (coluna: Coluna, rotulo: string, alinhar = "text-right") => {
+  const mudarFiltro = (f: Filtro) => { setFiltro(f); setLimite(PAGINA); };
+
+  const cabecalho = (coluna: Coluna, rotulo: string, extra: { alinhar?: string; rowSpan?: number; titulo?: string; className?: string } = {}) => {
     const ativa = ordem.coluna === coluna;
+    const alinhar = extra.alinhar ?? "text-right";
     return (
-      <th scope="col" aria-sort={ativa ? (ordem.desc ? "descending" : "ascending") : "none"} className={`px-2 py-2 font-semibold whitespace-nowrap ${alinhar}`}>
+      <th
+        scope="col"
+        rowSpan={extra.rowSpan}
+        title={extra.titulo}
+        aria-sort={ativa ? (ordem.desc ? "descending" : "ascending") : "none"}
+        className={`px-2 py-2 align-bottom font-semibold whitespace-nowrap ${alinhar} ${extra.className ?? ""}`}
+      >
         <button
           type="button"
           onClick={() => setOrdem({ coluna, desc: ativa ? !ordem.desc : coluna !== "nome" })}
-          className={`hover:text-foreground ${ativa ? "text-foreground" : ""}`}
+          className={`inline-flex items-center gap-0.5 rounded hover:text-foreground ${ativa ? "text-foreground" : ""}`}
         >
           {rotulo}
-          <span aria-hidden className="ml-0.5 inline-block w-2">{ativa ? (ordem.desc ? "↓" : "↑") : ""}</span>
+          <span aria-hidden className={`inline-block w-2.5 text-[0.65rem] ${ativa ? "" : "opacity-0"}`}>{ordem.desc ? "▼" : "▲"}</span>
         </button>
       </th>
     );
   };
 
+  const chip = (f: Filtro, rotulo: string, n: number, cor?: string) => (
+    <button
+      key={f}
+      type="button"
+      aria-pressed={filtro === f}
+      onClick={() => mudarFiltro(filtro === f && f !== "todos" ? "todos" : f)}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+        filtro === f ? "border-accent bg-accent text-white" : "border-border bg-surface text-muted hover:text-foreground"
+      }`}
+    >
+      {cor && <span className="inline-block size-2 rounded-full ring-1 ring-white/60" style={{ background: cor }} />}
+      {rotulo}
+      <span className={`tabular ${filtro === f ? "text-white/80" : "text-subtle"}`}>{fmtInt(n)}</span>
+    </button>
+  );
+
+  // Fundo opaco nas células fixas: o conteúdo rola por baixo delas.
+  const fixa = "sticky left-0 z-[1] bg-inherit";
+
   return (
     <div className="mt-6">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">{termos.todos}</h3>
-        <input
-          type="search"
-          value={busca}
-          onChange={(e) => { setBusca(e.target.value); setLimite(PAGINA); }}
-          placeholder={`Buscar entre ${fmtInt(linhas.length)} ${termos.plural}`}
-          aria-label={`Buscar ${termos.plural}`}
-          className="w-full rounded-full border border-border bg-surface px-3 py-1.5 text-sm sm:w-72"
-        />
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">{termos.todos}</h3>
+          <p className="text-xs text-muted">
+            {recorte ? `${fmtInt(filtradas.length)} de ${fmtInt(linhas.length)} ${termos.plural}` : `${fmtInt(linhas.length)} ${termos.plural}`} · clique numa linha para ver o detalhe
+          </p>
+        </div>
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <input
+            type="search"
+            value={busca}
+            onChange={(e) => { setBusca(e.target.value); setLimite(PAGINA); }}
+            placeholder={`Buscar ${termos.singular}`}
+            aria-label={`Buscar ${termos.plural}`}
+            className="min-w-0 flex-1 rounded-full border border-border bg-surface px-3 py-1.5 text-sm sm:w-60 sm:flex-none"
+          />
+          <button
+            type="button"
+            onClick={() => baixarCsv(`${exterior ? "cidades-exterior" : `municipios-${uf.scope}`}.csv`, filtradas, candidatos, termos)}
+            disabled={filtradas.length === 0}
+            title={`Baixar ${recorte ? "os resultados filtrados" : `todos os ${termos.plural}`} em CSV`}
+            className="rounded-full border border-border bg-surface px-3 py-1.5 text-sm font-semibold text-muted hover:text-foreground disabled:opacity-50"
+          >
+            ↓ CSV
+          </button>
+        </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm tabular">
-          <thead className="border-b border-border text-xs text-muted">
+
+      <div role="group" aria-label="Filtrar" className="mb-3 flex flex-wrap gap-1.5">
+        {chip("todos", "Todos", linhas.length)}
+        {vitorias.map(({ c, i, n }) => chip(`v${i}`, `${primeiroNome(c.nome)} venceu`, n, c.cor))}
+        {com1T && viradas > 0 && chip("viradas", "Viradas no 2º turno", viradas)}
+      </div>
+
+      <div className="max-h-[70vh] overflow-auto rounded-lg border border-border">
+        <table className="w-full border-separate border-spacing-0 text-sm tabular">
+          <thead className="sticky top-0 z-[2] bg-surface text-xs text-muted shadow-[0_1px_0_var(--border)]">
             <tr>
-              {cabecalho("nome", termos.coluna, "text-left")}
-              {cabecalho("eleitorado", "Eleitores")}
+              {cabecalho("nome", termos.coluna, { alinhar: "text-left", rowSpan: 2, className: `${fixa} bg-surface pl-3` })}
+              {cabecalho("eleitorado", "Eleitores", { rowSpan: 2 })}
+              <th scope="colgroup" colSpan={colunas.length} className="border-b border-border px-2 pt-2 pb-1 text-center font-semibold whitespace-nowrap">
+                % dos válidos
+              </th>
+              {com1T && (
+                <th scope="colgroup" colSpan={colunas.length} className="border-b border-border bg-track/50 px-2 pt-2 pb-1 text-center font-semibold whitespace-nowrap">
+                  Ganho desde o 1º turno
+                </th>
+              )}
+              {cabecalho("margem", "Vencedor", { rowSpan: 2, titulo: "Vantagem em p.p. sobre o 2º colocado" })}
+              {cabecalho("comparecimento", "Comparec.", { rowSpan: 2, className: "pr-3" })}
+            </tr>
+            <tr>
               {colunas.map((i) => <Fragment key={i}>{cabecalho(`c${i}`, primeiroNome(candidatos[i].nome))}</Fragment>)}
-              {cabecalho("margem", "Vencedor")}
-              {com1T && principal !== undefined && cabecalho("ganho", `${primeiroNome(candidatos[principal].nome)} vs 1ºT`)}
-              {cabecalho("comparecimento", "Comparec.")}
+              {com1T && colunas.map((i) => (
+                <Fragment key={i}>{cabecalho(`g${i}`, primeiroNome(candidatos[i].nome), { className: "bg-track/50", titulo: `Variação de ${candidatos[i].nome} entre os turnos, em p.p. dos válidos e em votos` })}</Fragment>
+              ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody>
             {filtradas.slice(0, limite).map((l) => {
               const sel = l.m.cd === selecionado;
-              const ganho = l.pct1T && principal !== undefined ? l.pct[principal] - l.pct1T[principal] : null;
               return (
-                <tr key={l.m.cd} className={sel ? "bg-track" : "hover:bg-track/60"}>
-                  <td className="px-2 py-1.5 text-left">
-                    <button type="button" aria-pressed={sel} onClick={() => onSelect(sel ? null : l.m.cd)} className="text-left font-semibold hover:text-accent hover:underline">
+                <tr
+                  key={l.m.cd}
+                  onClick={() => onSelect(sel ? null : l.m.cd)}
+                  className={`cursor-pointer [&>td]:border-b [&>td]:border-border ${sel ? "bg-track" : "bg-surface hover:bg-track"}`}
+                >
+                  <td className={`${fixa} py-2 pr-2 pl-3 text-left ${sel ? "shadow-[inset_3px_0_0_var(--accent)]" : ""}`}>
+                    {/* Sem onClick próprio: o clique sobe para a linha, e Enter no botão também. */}
+                    <button type="button" aria-pressed={sel} className="max-w-[11rem] truncate text-left font-semibold hover:text-accent sm:max-w-none">
                       {l.m.nome}
                     </button>
-                    {l.m.capital && <span className="ml-1.5 text-xs text-muted">capital</span>}
+                    {l.m.capital && <span className="ml-1.5 rounded bg-track px-1 py-0.5 align-middle text-[0.65rem] font-semibold text-muted uppercase">capital</span>}
                   </td>
-                  <td className="px-2 py-1.5 text-right">{fmtInt(l.m.eleitorado)}</td>
-                  {colunas.map((i) => <td key={i} className="px-2 py-1.5 text-right">{fmtPct(l.pct[i])}</td>)}
-                  <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                  <td className="px-2 py-2 text-right text-muted">{fmtInt(l.m.eleitorado)}</td>
+                  {colunas.map((i) => (
+                    <td key={i} className="px-2 py-2 text-right">
+                      <div className={l.lider === i ? "font-semibold" : ""}>{fmtPct(l.pct[i])}</div>
+                      <BarraPct pct={l.pct[i]} antes={l.pct1T?.[i]} cor={candidatos[i].cor} />
+                    </td>
+                  ))}
+                  {com1T && colunas.map((i) => (
+                    <td key={i} className="bg-track/30 px-2 py-2 text-right">
+                      {l.ganhoPP && l.ganhoVotos ? <CelulaGanho pp={l.ganhoPP[i]} votos={l.ganhoVotos[i]} cor={candidatos[i].cor} /> : "–"}
+                    </td>
+                  ))}
+                  <td className="px-2 py-2 text-right whitespace-nowrap">
                     {l.lider === null ? "–" : (
                       <>
-                        <span className="mr-1 inline-block size-2.5 rounded-full align-middle" style={{ background: candidatos[l.lider].cor }} />
-                        {primeiroNome(candidatos[l.lider].nome)} <span className="text-muted">{fmtPP(l.margem, "")}</span>
+                        <div className="inline-flex items-center gap-1.5">
+                          <span className="inline-block size-2.5 rounded-full" style={{ background: candidatos[l.lider].cor }} />
+                          {primeiroNome(candidatos[l.lider].nome)}
+                          <span className="rounded bg-track px-1 text-xs font-semibold">{fmtPP(l.margem, "")}</span>
+                        </div>
+                        {l.virada && <div className="text-xs font-semibold text-accent">virada</div>}
                       </>
                     )}
                   </td>
-                  {com1T && principal !== undefined && <td className="px-2 py-1.5 text-right">{ganho === null ? "–" : fmtPP(ganho)}</td>}
-                  <td className="px-2 py-1.5 text-right">{fmtPct(l.pctComparecimento)}</td>
+                  <td className="py-2 pr-3 pl-2 text-right">{fmtPct(l.pctComparecimento)}</td>
                 </tr>
               );
             })}
           </tbody>
+          {total && (
+            <tfoot className="sticky bottom-0 z-[2] bg-surface font-semibold shadow-[0_-1px_0_var(--border)]">
+              <tr className="bg-surface">
+                <th scope="row" className={`${fixa} py-2 pr-2 pl-3 text-left`}>
+                  {recorte ? `Soma dos ${fmtInt(filtradas.length)} filtrad${feminino ? "as" : "os"}` : exterior ? "Total do exterior" : `Total de ${scopeName(uf.scope)}`}
+                </th>
+                <td className="px-2 py-2 text-right">{fmtInt(total.m.eleitorado)}</td>
+                {colunas.map((i) => (
+                  <td key={i} className="px-2 py-2 text-right">
+                    {fmtPct(total.pct[i])}
+                    <BarraPct pct={total.pct[i]} antes={total.pct1T?.[i]} cor={candidatos[i].cor} />
+                  </td>
+                ))}
+                {com1T && colunas.map((i) => (
+                  <td key={i} className="bg-track/30 px-2 py-2 text-right">
+                    {total.ganhoPP && total.ganhoVotos ? <CelulaGanho pp={total.ganhoPP[i]} votos={total.ganhoVotos[i]} cor={candidatos[i].cor} /> : "–"}
+                  </td>
+                ))}
+                <td className="px-2 py-2 text-right whitespace-nowrap">
+                  {total.lider !== null && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="inline-block size-2.5 rounded-full" style={{ background: candidatos[total.lider].cor }} />
+                      {primeiroNome(candidatos[total.lider].nome)}
+                      <span className="rounded bg-track px-1 text-xs">{fmtPP(total.margem, "")}</span>
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 pr-3 pl-2 text-right">{fmtPct(total.pctComparecimento)}</td>
+              </tr>
+            </tfoot>
+          )}
         </table>
-      </div>
-      {filtradas.length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted">{termos.nenhum} encontrad{termos === TERMOS.cidade ? "a" : "o"} para “{busca}”.</p>
-      ) : (
-        filtradas.length > limite && (
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-sm">
-            <span className="text-muted">Mostrando {fmtInt(limite)} de {fmtInt(filtradas.length)}</span>
-            <button type="button" onClick={() => setLimite((n) => n + 50)} className="font-semibold text-accent hover:underline">Mostrar mais 50</button>
-            <button type="button" onClick={() => setLimite(filtradas.length)} className="font-semibold text-accent hover:underline">Mostrar todos</button>
+        {filtradas.length === 0 && (
+          <div className="px-4 py-8 text-center text-sm text-muted">
+            {termos.nenhum} encontrad{feminino ? "a" : "o"}{busca.trim() ? ` para “${busca.trim()}”` : ""}.{" "}
+            <button type="button" onClick={() => { setBusca(""); mudarFiltro("todos"); }} className="font-semibold text-accent hover:underline">
+              Limpar busca e filtros
+            </button>
           </div>
-        )
+        )}
+      </div>
+
+      {filtradas.length > limite && (
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-sm">
+          <span className="text-muted">Mostrando {fmtInt(limite)} de {fmtInt(filtradas.length)}</span>
+          <button type="button" onClick={() => setLimite((n) => n + 50)} className="font-semibold text-accent hover:underline">Mostrar mais 50</button>
+          <button type="button" onClick={() => setLimite(filtradas.length)} className="font-semibold text-accent hover:underline">Mostrar todos</button>
+        </div>
       )}
-      <p className="mt-2 text-xs text-muted">
-        Vencedor: vantagem em pontos percentuais sobre o 2º colocado.
-        {com1T && principal !== undefined && ` “vs 1ºT”: variação do % de ${candidatos[principal].nome} entre os turnos.`}
-      </p>
+      <ul className="mt-3 space-y-0.5 text-xs text-muted">
+        <li>Vencedor: vantagem em pontos percentuais sobre o 2º colocado.</li>
+        {com1T && (
+          <>
+            <li>
+              Ganho desde o 1º turno: variação do % dos válidos e dos votos de cada finalista. Os dois costumam subir, porque herdam
+              os votos dos candidatos eliminados; na barra de %, a marca escura indica onde cada um estava no 1º turno.
+            </li>
+            <li>Virada: o finalista que estava à frente no 1º turno perdeu {feminino ? "a cidade" : "o município"} no 2º.</li>
+          </>
+        )}
+      </ul>
     </div>
   );
 }
