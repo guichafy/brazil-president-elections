@@ -91,7 +91,6 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
       </ol>
       <p>Snapshots gravados do TSE; UFs podem ter horários diferentes. A garantia matemática é uma conta deste site; o selo oficial só aparece no resultado final. {scope !== "br" && `Seleção: ${scopeName(scope)}.`}</p>
       </details>
-      <div className="fixed inset-x-0 bottom-0 h-1.5 bg-white/10"><div className="h-full bg-[#FFDF00]" style={{width:`${100-decorrido/DURACAO_COMEMORACAO_MS*100}%`}}/></div>
     </section>
   );
 }
