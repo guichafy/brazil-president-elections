@@ -1,3 +1,5 @@
+import { assetPath } from "./assets";
+
 // Alertas sonoros: trechos de áudio em public/sons/, tocados pelo Web Audio; se o arquivo
 // não existir ou falhar, toca um som sintetizado no lugar.
 // O navegador só libera o áudio depois de um gesto do usuário: chame `desbloquearAudio()` num clique.
@@ -64,20 +66,21 @@ function nota(
 // Lula sobe ou diminui a vantagem do adversário: sorteia um dos áudios a cada alerta
 const AUDIOS_LULA = ["/sons/lula.mp3", "/sons/lula-bota-pra-virar.mp3"];
 const AUDIO_BOLSONARO = "/sons/bolsonaro.mp3"; // Flávio Bolsonaro sobe
-const AUDIO_VITORIA = "/sons/lula-vitoria.mp3"; // Lula vence a eleição: "Faz o L" (19s)
+const AUDIO_VITORIA = "/sons/lula-vitoria.mp3"; // vídeo r4L7BYH1JHA, primeiros 90s; origem em data/audio-vitoria.json
 
 const sortear = <T>(lista: T[]) => lista[Math.floor(Math.random() * lista.length)];
 
 const buffers = new Map<string, Promise<AudioBuffer | null>>();
 let tocando: AudioBufferSourceNode | null = null;
+let faixa:{buffer:AudioBuffer;offset:number;inicio:number;pausado:boolean}|null=null;
 
 function carregar(c: AudioContext, url: string): Promise<AudioBuffer | null> {
   let b = buffers.get(url);
   if (!b) {
-    b = fetch(url)
+    b = fetch(assetPath(url))
       .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((dados) => c.decodeAudioData(dados))
-      .catch(() => null);
+      .catch(() => { buffers.delete(url); return null; });
     buffers.set(url, b);
   }
   return b;
@@ -86,8 +89,37 @@ function carregar(c: AudioContext, url: string): Promise<AudioBuffer | null> {
 let pedido = 0; // só o pedido mais recente toca, mesmo que um anterior termine de carregar depois
 
 function interromper() {
-  tocando?.stop();
+  const fonte=tocando;
   tocando = null;
+  fonte?.stop();
+}
+
+export function posicaoSom():number|null {
+  if(!faixa)return null;
+  return Math.min(faixa.buffer.duration,faixa.offset+(faixa.pausado ? 0 : Math.max(0,(ctx?.currentTime??0)-faixa.inicio)));
+}
+
+export function pausarSom():number|null {
+  pedido++;
+  const offset=posicaoSom();
+  if(faixa&&offset!==null){faixa.offset=offset;faixa.pausado=true;}
+  interromper();return offset;
+}
+
+export function retomarSom():boolean {
+  if(!ctx||ctx.state!=="running"||!faixa||faixa.offset>=faixa.buffer.duration)return false;
+  interromper();
+  const atual=faixa,src=ctx.createBufferSource();
+  src.buffer=atual.buffer;src.connect(ctx.destination);
+  atual.inicio=ctx.currentTime??0;atual.pausado=false;tocando=src;
+  src.onended=()=>{if(tocando===src){tocando=null;atual.offset=atual.buffer.duration;atual.pausado=true;}};
+  src.start(0,atual.offset);return true;
+}
+
+export function posicionarSom(segundos:number,continuar=true):boolean {
+  if(!faixa)return false;
+  pausarSom();faixa.offset=Math.max(0,Math.min(faixa.buffer.duration,segundos));
+  return continuar ? retomarSom() : true;
 }
 
 /**
@@ -105,14 +137,8 @@ async function tocarArquivo(url: string, reserva: () => void): Promise<number | 
     reserva();
     return null;
   }
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  src.connect(ctx.destination);
-  src.onended = () => {
-    if (tocando === src) tocando = null;
-  };
-  src.start();
-  tocando = src;
+  faixa={buffer:buf,offset:0,inicio:ctx.currentTime??0,pausado:true};
+  retomarSom();
   return buf.duration;
 }
 
@@ -120,6 +146,7 @@ async function tocarArquivo(url: string, reserva: () => void): Promise<number | 
 export function pararSom() {
   pedido++;
   interromper();
+  faixa=null;
 }
 
 export const somFeliz = () => tocarArquivo(sortear(AUDIOS_LULA), arpejoFeliz);

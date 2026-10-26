@@ -32,8 +32,10 @@ function variacao(antes: ResultadoAbrangencia, depois: ResultadoAbrangencia, num
 
 /** Lula eleito pelo TSE ou, no 2º turno, com vitória já garantida pela conta (como no selo do placar). */
 export function lulaVenceu(nacional: ResultadoAbrangencia): boolean {
+  // No primeiro turno e=s também marca classificação para o segundo turno.
+  if (nacional.turno !== "2") return false;
   if (nacional.candidatos.find((c) => c.numero === LULA)?.eleito) return true;
-  return nacional.turno === "2" && nacional.decisao.garantido && nacional.decisao.lider === LULA;
+  return nacional.decisao.garantido && nacional.decisao.lider === LULA;
 }
 
 /**

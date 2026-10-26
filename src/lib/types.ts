@@ -30,6 +30,7 @@ export interface Decisao {
 }
 
 export interface ResultadoAbrangencia {
+  abstencaoDisponivel?: boolean; // falso no replay: o gravador não preservava e.a
   scope: Scope;
   turno: string;
   dataHora: string; // "dd/mm/aaaa hh:mm:ss" da totalização, em horário de Brasília
@@ -93,4 +94,29 @@ export interface ComparacaoResponse {
 export interface TimelineResponse {
   scope: Scope;
   pontos: PontoTimeline[];
+}
+
+export interface ReplaySnapshot {
+  scope: Scope;
+  rec: string;
+  isoDataHora: string;
+  st: number;
+  ts: number;
+  vv: number;
+  vb: number;
+  tvn: number;
+  c: number;
+  te?: number;
+  est?: number;
+  cands: { n: string; vap: number }[];
+}
+
+export interface ReplayResponse {
+  snapshots: ReplaySnapshot[];
+  pontos: {
+    rec: string;
+    t: string;
+    indices: Partial<Record<Scope, number>> & { br: number };
+    projecao: ProjecaoNacional | null;
+  }[];
 }

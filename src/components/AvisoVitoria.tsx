@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { assetPath } from "@/lib/assets";
 import { EASE, fixo, rgba, transformacao } from "@/lib/lottie";
+import type { ApuracaoResponse } from "@/lib/types";
+import TimelapseVitoria from "./TimelapseVitoria";
 
 // Animações da LottieFiles (Lottie Simple License) em public/lottie/:
 // confete.json "Confetti - Full Screen" (Rohith R Krishnan) · fogos.json "Fireworks" (Laura Fonseca)
@@ -49,7 +52,7 @@ function Arquivo({ src, className, cobrir = false }: { src: string; className: s
   useLottie(
     ref,
     () => ({
-      path: src,
+      path: assetPath(src),
       loop: true,
       autoplay: true,
       rendererSettings: { preserveAspectRatio: cobrir ? "xMidYMid slice" : "xMidYMid meet" },
@@ -133,7 +136,7 @@ function animacaoLula(cor: string) {
     h: H,
     nm: "vitória do Lula",
     ddd: 0,
-    assets: [{ id: "lula", w: FOTO.w, h: FOTO.h, u: "/imagens/", p: "lula.png", e: 0 }],
+    assets: [{ id: "lula", w: FOTO.w, h: FOTO.h, u: assetPath("/imagens/"), p: "lula.png", e: 0 }],
     layers: [
       camada(1, { ty: 2, refId: "lula" }, { a: fixo([FOTO.w / 2, FOTO.h / 2, 0]), p: pulo, s: escalaFoto, r: balanco }),
       // halo na cor do partido, pulsando junto com a respiração
@@ -164,6 +167,9 @@ export function AnimacaoLula({ cor, className = "w-[min(78vw,340px)]" }: { cor: 
 export interface EventoVitoria {
   id: number;
   duracaoMs: number;
+  iniciadoEm: number | null;
+  posicaoMs:number;
+  pausado:boolean;
   eleito: boolean; // TSE já declarou; senão, vitória garantida pela conta
   pct: number;
   votos: number;
@@ -176,27 +182,50 @@ interface Props {
   onFechar: () => void;
   onOuvir: () => void;
   corLula: string;
+  resultadoFinal: ApuracaoResponse;
+  onAlternar:()=>void;
+  onPosicionar:(ms:number)=>void;
 }
 
-/** Comemoração em tela cheia da vitória do Lula; dura o mesmo que o áudio. */
+/** Filme da apuração, com 90s sincronizados à trilha local quando liberada. */
 export default function AvisoVitoria({ vitoria, ...props }: Props) {
   if (!vitoria) return null;
   return <Comemoracao key={vitoria.id} vitoria={vitoria} {...props} />;
 }
 
-function Comemoracao({ vitoria, onFechar, onOuvir, corLula }: Omit<Props, "vitoria"> & { vitoria: EventoVitoria }) {
+function Comemoracao({ vitoria, onFechar, onOuvir, corLula, resultadoFinal,onAlternar,onPosicionar }: Omit<Props, "vitoria"> & { vitoria: EventoVitoria }) {
+  const dialog = useRef<HTMLDivElement>(null);
+  const venceuSegundoTurno = resultadoFinal.nacional?.turno === "2" && (vitoria.eleito || resultadoFinal.nacional.decisao.lider === "13");
   useEffect(() => {
-    const aoTeclar = (e: KeyboardEvent) => e.key === "Escape" && onFechar();
+    const anterior = document.activeElement;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialog.current?.focus();
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onFechar();
+      if (e.key !== "Tab") return;
+      const controles = dialog.current?.querySelectorAll<HTMLElement>("button, select, a[href], [tabindex='0']");
+      if (!controles?.length) return;
+      const primeiro = controles[0], ultimo = controles[controles.length - 1];
+      if (e.shiftKey && (document.activeElement === primeiro || document.activeElement === dialog.current)) { e.preventDefault(); ultimo.focus(); }
+      else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro.focus(); }
+    };
     window.addEventListener("keydown", aoTeclar);
-    return () => window.removeEventListener("keydown", aoTeclar);
+    return () => {
+      window.removeEventListener("keydown", aoTeclar);
+      document.body.style.overflow = overflow;
+      if (anterior instanceof HTMLElement && anterior.isConnected) anterior.focus();
+    };
   }, [onFechar]);
 
   return (
     <div
       role="dialog"
-      aria-label="Lula venceu a eleição"
-      onClick={vitoria.semSom ? onOuvir : onFechar}
-      className="aviso-fundo fixed inset-0 z-[60] flex items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_40%,#0f7a38_0%,#07401d_55%,#021509_100%)] text-white"
+      aria-modal="true"
+      ref={dialog}
+      tabIndex={-1}
+      aria-label={venceuSegundoTurno ? "Lula venceu a eleição" : "Demonstração do timelapse da apuração"}
+      className="aviso-fundo fixed inset-0 z-[60] overflow-y-auto bg-[#07401d] text-white outline-none"
     >
       <Arquivo src="/lottie/confete.json" cobrir className="pointer-events-none absolute inset-0" />
       <Arquivo src="/lottie/fogos.json" className="pointer-events-none absolute top-[3%] left-[2%] size-40 sm:size-64" />
@@ -208,39 +237,28 @@ function Comemoracao({ vitoria, onFechar, onOuvir, corLula }: Omit<Props, "vitor
           e.stopPropagation();
           onFechar();
         }}
-        className="absolute top-4 right-4 z-10 rounded px-2 py-1 text-white/70 hover:text-white"
+        className="fixed top-3 right-3 z-20 rounded-full bg-[#032710] px-3 py-2 text-white hover:bg-black focus-visible:outline-2 focus-visible:outline-[#FFDF00]"
         aria-label="Fechar comemoração"
       >
         ✕
       </button>
 
-      <div className="aviso-cartao relative flex max-w-full flex-col items-center px-4 text-center">
-        {vitoria.teste && <div className="mb-1 rounded-full bg-white/15 px-3 py-0.5 text-xs font-semibold">Teste da comemoração</div>}
-        <AnimacaoLula cor={corLula} />
-        <div className="text-4xl font-black tracking-tight drop-shadow-lg sm:text-6xl" style={{ color: "#FFDF00" }}>
-          {vitoria.eleito ? "LULA ELEITO!" : "LULA VENCEU!"}
-        </div>
-        <div className="mt-2 text-base font-semibold sm:text-lg">
-          {vitoria.pct.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% dos votos válidos ·{" "}
-          <span className="whitespace-nowrap">{vitoria.votos.toLocaleString("pt-BR")} votos</span>
-        </div>
-        <div className="text-xs text-white/70">
-          {vitoria.eleito ? "Resultado declarado pelo TSE" : "Vitória matematicamente garantida: a vantagem supera o eleitorado que falta"}
-        </div>
-        <div className="mt-3 flex items-center gap-2">
-          <Arquivo src="/lottie/urna.json" className="size-20 sm:size-24" />
-          <span className="text-2xl font-black sm:text-3xl">Faz o L!</span>
-          <Arquivo src="/lottie/bandeira.json" className="size-20 sm:size-24" />
-        </div>
-        {vitoria.semSom && (
-          <div className="mt-4 animate-pulse rounded-full bg-white px-4 py-1.5 text-sm font-bold text-[#07401d]">🔊 Toque para ouvir</div>
-        )}
+      <div className="relative mx-auto max-w-[1600px] px-4 py-6 pb-12 sm:px-8">
+        <header className="mb-5 flex items-center gap-3 pr-8">
+          <AnimacaoLula cor={corLula} className="hidden w-24 shrink-0 sm:block" />
+          <div>
+            {vitoria.teste && <p className="text-xs text-white/65">Reprodução da comemoração</p>}
+            <h1 className="text-2xl font-black tracking-tight text-[#FFDF00] sm:text-4xl">{venceuSegundoTurno ? "Da apuração à vitória de Lula" : "Demonstração do timelapse da apuração"}</h1>
+            <p className="mt-1 text-xs text-white/70 sm:text-sm">Resultado final: {vitoria.pct.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% · {vitoria.votos.toLocaleString("pt-BR")} votos{venceuSegundoTurno && vitoria.eleito ? " · eleito pelo TSE" : ""}</p>
+            <button type="button" onClick={onOuvir} className="mt-2 rounded-full bg-[#FFDF00] px-4 py-2 text-xs font-bold text-[#07401d] hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+              {vitoria.semSom ? "🔊 Ouvir e reiniciar os 90 segundos" : "↻ Reiniciar com áudio"}
+            </button>
+          </div>
+        </header>
+        <TimelapseVitoria resultadoFinal={resultadoFinal} vitoria={vitoria} onTentar={onOuvir} onAlternar={onAlternar} onPosicionar={onPosicionar}/>
+        <p className="mt-4 text-[11px] text-white/50">Trilha: <a className="underline" href="https://www.youtube.com/watch?v=r4L7BYH1JHA" target="_blank" rel="noreferrer">Olê, olê, olê, olá · Exército da Esquerda</a> · trecho de 90 segundos.</p>
       </div>
 
-      {/* contagem até a comemoração sumir sozinha */}
-      <div className="absolute inset-x-0 bottom-0 h-1.5 bg-white/10">
-        <div key={String(vitoria.semSom)} className="h-full origin-left" style={{ background: "#FFDF00", animation: `aviso-contagem ${vitoria.duracaoMs}ms linear forwards` }} />
-      </div>
     </div>
   );
 }

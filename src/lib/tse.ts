@@ -1,5 +1,5 @@
 import "server-only";
-import { fotoUrl, resultadoUrl } from "./config";
+import { fotoUrl } from "./config";
 import { partyColor } from "./parties";
 import type { Candidato, Decisao, ResultadoAbrangencia } from "./types";
 import type { Scope } from "./ufs";
@@ -134,13 +134,4 @@ export function parseResultado(scope: Scope, raw: RawResultado): ResultadoAbrang
     decisao: calcDecisao(candidatos, int(e.esnt), finalizado),
     candidatos,
   };
-}
-
-export async function fetchResultado(scope: Scope): Promise<ResultadoAbrangencia> {
-  const res = await fetch(resultadoUrl(scope), {
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!res.ok) throw new Error(`${scope}: HTTP ${res.status}`);
-  return parseResultado(scope, (await res.json()) as RawResultado);
 }

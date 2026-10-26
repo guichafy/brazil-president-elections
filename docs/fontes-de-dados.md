@@ -107,6 +107,22 @@ https://resultados.tse.jus.br/oficial/ele2026/6257/fotos/br/{sqcand}.jpeg
 
 ## 8. Como a aplicação usa isso
 
+Desde a migração para SSG, o site usa um arquivo permanente, sem proxy ou consulta periódica em produção:
+
+```
+TSE CDN ──(captura manual: npm run archive)──> data/resultados-<eleição>.json + public/fotos/
+Snapshots + eleitorado + referência 2022 + resultado completo ──(next build)──> out/
+GitHub Pages ──> HTML inicial + assets locais + JSON de timeline por abrangência
+```
+
+As respostas brutas das 29 abrangências e as fotos dos dois turnos ficam versionadas. A captura exige 100% das seções e finalização nacional, mas preserva os indicadores regionais originais: Roraima tem `tf=n` no segundo turno mesmo com 100% apurado. Metadados como nomes, partido, coligação, vice e situação oficial vêm dos arquivos completos, não são reconstruídos a partir dos snapshots.
+
+`src/lib/static-data.ts` executa as transformações e a projeção histórica no build. Os 29 históricos são exportados em `dados/timeline/<scope>.json`. O navegador recebe o resultado nacional e seu histórico no HTML e busca os demais históricos uma vez, conforme o usuário seleciona as abrangências. O mapa, comparações, tutorial, testes de áudio e comemoração continuam no navegador. A fonte Inter também é local.
+
+O slider usa `dados/replay.json`, com snapshots compactos e índices por abrangência em cada ciclo nacional. Os retratos regionais usam a mesma tolerância de 15 segundos após o registro nacional adotada pela projeção histórica. A reprodução mantém as contagens gravadas e não antecipa situações oficiais de candidatos. Os snapshots não preservavam `e.a`, por isso a abstenção fica indisponível durante a reprodução; na posição final, o site restaura integralmente o arquivo oficial. A ajuda abre apenas pelo botão “Como funciona?”.
+
+O fluxo original durante a apuração, mantido aqui como registro da coleta, era:
+
 ```
 TSE CDN ──(a cada 30s)──> scripts/recorder.mjs ──> data/snapshots-6257.jsonl ──> /api/presidente/timeline
 TSE CDN ──(cache 10s)───> /api/presidente (29 abrangências em paralelo) ──> navegador (polling 15s)

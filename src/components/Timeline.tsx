@@ -23,11 +23,12 @@ interface Props {
   pontos: PontoTimeline[];
   candidatos: Candidato[]; // ordem e cores atuais
   atualizadoEm: string; // dataHora da última totalização do TSE
+  momento?: Pick<PontoTimeline, "t" | "pctTotalizado">;
 }
 
 const horaFmt = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
-export default function Timeline({ pontos, candidatos, atualizadoEm }: Props) {
+export default function Timeline({ pontos, candidatos, atualizadoEm, momento }: Props) {
   const [eixo, setEixo] = useState<Eixo>("apurado");
   const [foco, setFoco] = useState<"duelo" | "top" | "todos">("duelo");
   const [mostrarProj, setMostrarProj] = useState(true);
@@ -123,6 +124,7 @@ export default function Timeline({ pontos, candidatos, atualizadoEm }: Props) {
               width={44}
             />
             <ReferenceLine y={50} stroke="var(--subtle)" strokeDasharray="4 4" label={{ value: "50%", position: "insideTopLeft", fill: "var(--muted)", fontSize: 11 }} />
+            {momento && <ReferenceLine x={eixo === "apurado" ? momento.pctTotalizado : Date.parse(momento.t)} stroke="var(--foreground)" strokeWidth={2} ifOverflow="extendDomain" label={{ value: "Selecionado", position: "insideTopRight", fill: "var(--foreground)", fontSize: 11 }} />}
             <Tooltip content={(props) => <TooltipBox {...props} candidatos={visiveis} />} />
             {comProj.map((c) => (
               <Line

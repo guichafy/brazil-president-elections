@@ -1,60 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { desbloquearAudio, pararSom, somFeliz, somTriste } from "@/lib/sons";
 import { estiloCss } from "./BrazilMap";
 
-// Tutorial de entrada: na 1ª visita, a apuração fica atrás de um passo a passo que explica como ler a página e
-// exige ouvir os dois áudios de alerta. Esses cliques também liberam o áudio no navegador.
+// Ajuda aberta apenas pelo botão "Como funciona?"; nunca bloqueia uma primeira visita.
 
-const CHAVE = "onboarding-v1";
 const COR_LULA = "#D60828";
 const COR_FLAVIO = "#272D97";
 
-// sem localStorage (aba anônima, bloqueio), vale até recarregar a página
-let vistoNaSessao = false;
-const ouvintes = new Set<() => void>();
-
-function lerVisto() {
-  if (vistoNaSessao) return true;
-  try {
-    return localStorage.getItem(CHAVE) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function assinar(cb: () => void) {
-  ouvintes.add(cb);
-  window.addEventListener("storage", cb);
-  return () => {
-    ouvintes.delete(cb);
-    window.removeEventListener("storage", cb);
-  };
-}
-
-function marcarVisto() {
-  vistoNaSessao = true;
-  try {
-    localStorage.setItem(CHAVE, "1");
-  } catch {}
-  ouvintes.forEach((cb) => cb());
-}
-
 export function useOnboarding() {
-  // no servidor (e na hidratação) conta como visto, para o tutorial não piscar para quem já o viu
-  const visto = useSyncExternalStore(assinar, lerVisto, () => true);
-  const [revendo, setRevendo] = useState(false);
+  const [aberto, setAberto] = useState(false);
   return {
-    aberto: !visto || revendo,
-    /** aberto pelo "Como funciona?": aí pode fechar sem chegar ao fim */
-    revendo: visto && revendo,
-    rever: useCallback(() => setRevendo(true), []),
-    fechar: useCallback(() => setRevendo(false), []),
-    concluir: useCallback(() => {
-      marcarVisto();
-      setRevendo(false);
-    }, []),
+    aberto,
+    revendo: true,
+    rever: useCallback(() => setAberto(true), []),
+    fechar: useCallback(() => setAberto(false), []),
+    concluir: useCallback(() => setAberto(false), []),
   };
 }
 
@@ -106,7 +68,7 @@ export default function Onboarding({
 
   const ouviuTudo = ouvidos.size === 2;
   const passos: { titulo: string; conteudo: ReactNode; trava?: string }[] = [
-    { titulo: "Bem-vindo à apuração ao vivo", conteudo: <BoasVindas /> },
+    { titulo: "Como explorar a apuração", conteudo: <BoasVindas /> },
     { titulo: "Como ler o placar", conteudo: <ComoLerPlacar /> },
     { titulo: "Mapa e linha do tempo", conteudo: <MapaELinha /> },
     {
@@ -230,10 +192,10 @@ function BoasVindas() {
   return (
     <ul className="space-y-3">
       <Item icone="📡">
-        Os números vêm direto do <b>TSE</b>, e a página se atualiza sozinha a cada 15 segundos. Não precisa recarregar.
+        Os números são do <b>TSE</b>: todas as urnas já foram apuradas. O resultado e o histórico estão preservados neste site.
       </Item>
       <Item icone="🔔">
-        Quando o resultado do Brasil mexer, toca um <b>áudio de alerta</b>. Deixe a aba aberta: pode ficar em segundo plano.
+        Explore os momentos da apuração pelo <b>slider do histórico</b>. O placar, o mapa e o gráfico acompanham sua seleção.
       </Item>
       <Item icone="👆">
         São quatro passos rápidos para você saber ler cada parte da página e ouvir os alertas. Leva menos de um minuto.
@@ -277,7 +239,7 @@ function ComoLerPlacar() {
           <b>Barra grossa:</b> quanto cada um tem agora, em % dos votos válidos.
         </Item>
         <Item icone="▭">
-          <b>Barra fina:</b> a projeção deste site para quando 100% das urnas forem apuradas. É uma estimativa, não resultado
+          <b>Barra fina:</b> durante a apuração, mostrava a projeção deste site para 100% das urnas. Era uma estimativa, não resultado
           oficial.
         </Item>
         <Item icone="┆">
@@ -352,7 +314,7 @@ function MapaELinha() {
         </Item>
         <Item icone="📈">
           <span className="block">
-            A <b>linha do tempo</b> mostra como o % de cada um mudou conforme as urnas foram apuradas. O tracejado é a projeção,
+            A <b>linha do tempo</b> mostra como o % de cada um mudou conforme as urnas foram apuradas. O tracejado é a projeção histórica,
             e as abas comparam com o 1º turno e com 2022.
           </span>
           <svg viewBox="0 0 200 50" className="mt-2 h-12 w-full max-w-60" aria-hidden="true">
@@ -382,7 +344,7 @@ function Sons({
       cor: COR_LULA,
       regra: (
         <>
-          Toca quando, numa atualização do TSE, <b>Lula ganha votos e sobe no %</b> e <b>Flávio cai</b>.
+          Durante a apuração, tocava quando <b>Lula ganhava votos e subia no %</b> e <b>Flávio caía</b>. Aqui você pode testar o áudio.
         </>
       ),
     },
@@ -392,14 +354,14 @@ function Sons({
       cor: COR_FLAVIO,
       regra: (
         <>
-          Toca quando <b>Lula cai no %</b> e <b>Flávio sobe</b>.
+          Durante a apuração, tocava quando <b>Lula caía no %</b> e <b>Flávio subia</b>. Aqui você pode testar o áudio.
         </>
       ),
     },
   ];
   return (
     <>
-      <p className="mb-3">Cada atualização do resultado do Brasil pode disparar um destes alertas. Toque nos dois para conhecê-los:</p>
+      <p className="mb-3">Estes eram os alertas da apuração ao vivo. Os testes de som continuam disponíveis. Toque nos dois para conhecê-los:</p>
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
         {cartoes.map((c) => {
           const ouvido = ouvidos.has(c.t);
@@ -432,10 +394,9 @@ function Sons({
         </p>
       )}
       <ul className="space-y-3">
-        <Item icone="🤐">Qualquer outra combinação não toca nada. Os alertas olham só o Brasil, não cada estado.</Item>
+        <Item icone="🤐">Os alertas acompanhavam só o Brasil. Com o resultado encerrado, não há novos alertas de variação.</Item>
         <Item icone="💬">
-          Junto com o som, aparece no centro da tela, por 15 segundos, um aviso com a variação de cada um. Depois de um alerta, o
-          próximo só vem 5 minutos depois.
+          A comemoração da vitória continua disponível, assim como os botões de teste dos áudios no topo da página.
         </Item>
         <Item icone="📱">No iPhone, desligue o modo silencioso (a chave na lateral) e aumente o volume.</Item>
       </ul>
@@ -446,23 +407,23 @@ function Sons({
 function Pronto({ onConcluir }: { onConcluir: (comSom: boolean) => void }) {
   return (
     <>
-      <p className="mb-4">Como você quer acompanhar a apuração?</p>
+      <p className="mb-4">Como você quer explorar o resultado?</p>
       <div className="mb-4 grid gap-2">
         <button
           type="button"
           onClick={() => onConcluir(true)}
           className="rounded-xl bg-accent px-4 py-3 text-left font-bold text-white hover:bg-accent-strong"
         >
-          🔔 Acompanhar com som
-          <span className="block text-xs font-normal opacity-90">Os alertas tocam quando o placar do Brasil mexer</span>
+          🔔 Explorar com som
+          <span className="block text-xs font-normal opacity-90">Comemoração e testes dos áudios da apuração</span>
         </button>
         <button
           type="button"
           onClick={() => onConcluir(false)}
           className="rounded-xl border border-border px-4 py-3 text-left font-bold hover:bg-track"
         >
-          🔕 Acompanhar sem som
-          <span className="block text-xs font-normal text-muted">Só os avisos na tela</span>
+          🔕 Explorar sem som
+          <span className="block text-xs font-normal text-muted">Comemoração apenas na tela</span>
         </button>
       </div>
       <ul className="space-y-3 text-muted">

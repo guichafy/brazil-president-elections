@@ -1,0 +1,17 @@
+{
+  "video": "https://www.youtube.com/watch?v=r4L7BYH1JHA",
+  "titulo": "OLÊ, OLÊ, OLÊ OLÁ (LULA, LULA) - MÚSICA OFICIAL - LULA PRESIDENTE 2026!",
+  "canal": "Exército da Esquerda",
+  "arquivo": "public/sons/lula-vitoria.mp3",
+  "inicioSegundos": 0,
+  "duracaoSegundos": 90,
+  "fadeOut": {
+    "inicioSegundos": 88,
+    "duracaoSegundos": 2
+  },
+  "sha256": "0d63ce68cbf7fe7bf429d7cb2af8b120124c30e2a87ddb179b535b12d94ff487",
+  "ferramentas": [
+    "~/Workspaces/Bin/yt-dlp",
+    "ffmpeg"
+  ]
+}

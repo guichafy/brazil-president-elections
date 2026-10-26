@@ -21,6 +21,7 @@ interface Props {
   candidatos: Candidato[]; // ordem e cores atuais
   rotuloAtual: string; // ex.: "2º T - 2026"
   referencia: SerieReferencia;
+  selecionado?: Pick<PontoTimeline, "pctTotalizado" | "pct">;
 }
 
 type Serie = { x: number; v: number }[];
@@ -41,7 +42,7 @@ function valorEm(serie: Serie, x: number): number | undefined {
 const pp = (n: number) =>
   `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} p.p.`;
 
-export default function Comparacao({ pontos, candidatos, rotuloAtual, referencia }: Props) {
+export default function Comparacao({ pontos, candidatos, rotuloAtual, referencia, selecionado }: Props) {
   const duelo = useMemo(() => candidatos.slice(0, 2), [candidatos]);
   const nomeRef = (c: Candidato) => referencia.nomes[c.numero] ?? c.nome;
 
@@ -76,7 +77,7 @@ export default function Comparacao({ pontos, candidatos, rotuloAtual, referencia
     };
   }, [pontos, referencia, duelo]);
 
-  const ultimo = pontos.at(-1);
+  const ultimo = selecionado ?? pontos.at(-1);
 
   return (
     <div>
@@ -111,6 +112,7 @@ export default function Comparacao({ pontos, candidatos, rotuloAtual, referencia
               width={44}
             />
             <ReferenceLine y={50} stroke="var(--subtle)" strokeDasharray="4 4" />
+            {selecionado && <ReferenceLine x={selecionado.pctTotalizado} stroke="var(--foreground)" strokeWidth={2} />}
             <Tooltip content={(props) => <TooltipBox {...props} duelo={duelo} atual={atual} ref_={ref} nomeRef={nomeRef} />} />
             {duelo.map((c) => (
               <Line

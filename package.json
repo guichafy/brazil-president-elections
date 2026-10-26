@@ -2,10 +2,15 @@
   "name": "eleicao-2026",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "next build --webpack",
+    "preview": "node scripts/preview.mjs",
+    "test": "node --conditions=react-server --import ./tests/register.mjs --test tests/*.test.mjs",
+    "verify:export": "node scripts/verify-export.mjs",
+    "archive": "node scripts/archive-results.mjs",
     "lint": "eslint",
     "recorder": "node scripts/recorder.mjs"
   },

@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { assetPath } from "@/lib/assets";
 import { fmtInt, fmtPct } from "@/lib/format";
-import type { ApuracaoResponse, ComparacaoResponse, ResultadoAbrangencia, TimelineResponse } from "@/lib/types";
+import { aplicarReplay } from "@/lib/replay";
+import {pararSom} from "@/lib/sons";
+import type { ApuracaoResponse, ComparacaoResponse, ReplayResponse, ResultadoAbrangencia, TimelineResponse } from "@/lib/types";
 import { UF_LIST, scopeName, type Scope } from "@/lib/ufs";
 import { AvisoHumor, BotaoSom, useAlertaSom } from "./AlertaSom";
 import AvisoVitoria from "./AvisoVitoria";
@@ -12,63 +15,66 @@ import Comparacao from "./Comparacao";
 import Onboarding, { useOnboarding } from "./Onboarding";
 import Placar from "./Placar";
 import Projecao from "./Projecao";
+import ReplayControls from "./ReplayControls";
 import Timeline, { Segmented } from "./Timeline";
-
-const POLL_MS = 15_000;
 
 type Vista = "evolucao" | "turnos" | "2022";
 
-function usePolling<T>(url: string, ms: number, onData?: (data: T) => void) {
-  const [data, setData] = useState<T | null>(null);
-  const onDataRef = useRef(onData);
+function useTimeline(scope: Scope, inicial: TimelineResponse) {
+  const [historicos, setHistoricos] = useState<Partial<Record<Scope, TimelineResponse>>>({ [inicial.scope]: inicial });
+  const [erros, setErros] = useState<Partial<Record<Scope, string>>>({});
+  const [tentativa, setTentativa] = useState(0);
+  const data = historicos[scope];
   useEffect(() => {
-    onDataRef.current = onData;
-  });
-  const [erro, setErro] = useState<string | null>(null);
-  const [recebidoEm, setRecebidoEm] = useState(0);
-
-  useEffect(() => {
-    let cancelado = false;
+    if (data) return;
+    const controller = new AbortController();
     const load = async () => {
       try {
-        const r = await fetch(url, { cache: "no-store" });
+        const r = await fetch(assetPath(`/dados/timeline/${scope}.json`), { signal: controller.signal });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const json = (await r.json()) as T;
-        if (cancelado) return;
-        setData(json);
-        onDataRef.current?.(json);
-        setErro(null);
-        setRecebidoEm(Date.now());
+        const json = (await r.json()) as TimelineResponse;
+        if (json.scope !== scope) throw new Error("Histórico de outra abrangência");
+        if (controller.signal.aborted) return;
+        setHistoricos((anteriores) => ({ ...anteriores, [scope]: json }));
+        setErros((anteriores) => ({ ...anteriores, [scope]: undefined }));
       } catch (e) {
-        if (!cancelado) setErro(e instanceof Error ? e.message : String(e));
+        if (!controller.signal.aborted) setErros((anteriores) => ({ ...anteriores, [scope]: e instanceof Error ? e.message : String(e) }));
       }
     };
-    load();
-    // continua consultando com a aba em segundo plano, para os alertas sonoros
-    const id = setInterval(load, ms);
-    return () => {
-      cancelado = true;
-      clearInterval(id);
-    };
-  }, [url, ms]);
-
-  return { data, erro, recebidoEm };
+    void load();
+    return () => controller.abort();
+  }, [scope, data, tentativa]);
+  return { data, erro: erros[scope], tentarNovamente: () => setTentativa((n) => n + 1) };
 }
 
-export default function Apuracao() {
+export default function Apuracao({
+  apuracao: resultadoFinal,
+  comparacao,
+  timelineInicial,
+}: {
+  apuracao: ApuracaoResponse;
+  comparacao: ComparacaoResponse;
+  timelineInicial: TimelineResponse;
+}) {
   const [scope, setScope] = useState<Scope>("br");
   const [destaque, setDestaque] = useState<string | null>(null);
+  const [replay, setReplay] = useState<{ dados: ReplayResponse; indice: number } | null>(null);
+  const d = useMemo(() => replay ? aplicarReplay(resultadoFinal, replay.dados, replay.indice) : resultadoFinal, [resultadoFinal, replay]);
+  const historicoAtivo = !!replay && replay.indice < replay.dados.pontos.length - 1;
 
   const guia = useOnboarding();
   // com o guia aberto, os alertas de verdade esperam, para não se misturar aos testes de som
   const som = useAlertaSom(guia.aberto);
-  const apuracao = usePolling<ApuracaoResponse>("/api/presidente", POLL_MS, (r) => som.onNacional(r.nacional));
-  const timeline = usePolling<TimelineResponse>(`/api/presidente/timeline?scope=${scope}`, POLL_MS * 2);
-  // séries de referência não mudam: uma consulta por hora basta
-  const comparacao = usePolling<ComparacaoResponse>("/api/presidente/comparacao", 3_600_000);
+  const controleReplay = <ReplayControls scope={scope} bloqueado={!!som.vitoria||guia.aberto} somAtivo={som.ativo} indice={replay?.indice ?? null} onChange={(dados, indice) => setReplay({ dados, indice })} />;
+  const timeline = useTimeline(scope, timelineInicial);
   const [vista, setVista] = useState<Vista>("evolucao");
 
-  const d = apuracao.data;
+  // O resultado é fixo; fechar o tutorial também precisa liberar a comemoração.
+  const onNacional = som.onNacional;
+  useEffect(() => {
+    if (!guia.aberto) onNacional(resultadoFinal.nacional);
+  }, [guia.aberto, resultadoFinal.nacional, onNacional]);
+
   const atual: ResultadoAbrangencia | null | undefined =
     scope === "br" ? d?.nacional : scope === "zz" ? d?.exterior : d?.ufs[scope];
 
@@ -86,11 +92,11 @@ export default function Apuracao() {
   // no 2º turno, progresso + projeção viram um placar nacional único
   const comPlacar = segundoTurno && d?.nacional?.candidatos.length === 2;
   const abas: { value: Vista; label: string }[] = [{ value: "evolucao", label: "Evolução" }];
-  if (scope === "br" && segundoTurno && comparacao.data?.primeiroTurno) abas.push({ value: "turnos", label: "1ºT x 2ºT" });
-  if (scope === "br" && segundoTurno && comparacao.data?.ano2022) abas.push({ value: "2022", label: "2022 x 2026" });
+  if (scope === "br" && segundoTurno && comparacao.primeiroTurno) abas.push({ value: "turnos", label: "1ºT x 2ºT" });
+  if (scope === "br" && segundoTurno && comparacao.ano2022) abas.push({ value: "2022", label: "2022 x 2026" });
   const vistaAtiva = abas.some((a) => a.value === vista) ? vista : "evolucao";
   const referencia =
-    vistaAtiva === "turnos" ? comparacao.data?.primeiroTurno : vistaAtiva === "2022" ? comparacao.data?.ano2022 : null;
+    vistaAtiva === "turnos" ? comparacao.primeiroTurno : vistaAtiva === "2022" ? comparacao.ano2022 : null;
 
   const conteudoMapa = d ? (
     <>
@@ -112,10 +118,16 @@ export default function Apuracao() {
             candidatos={atual.candidatos}
             rotuloAtual={`${atual.turno}º T - 2026`}
             referencia={referencia}
+            selecionado={historicoAtivo ? { pctTotalizado: atual.pctTotalizado, pct: Object.fromEntries(atual.candidatos.map((c) => [c.numero, c.pct])) } : undefined}
           />
         ) : (
-          <Timeline pontos={timeline.data.pontos} candidatos={atual.candidatos} atualizadoEm={atual.dataHora} />
+          <Timeline pontos={timeline.data.pontos} candidatos={atual.candidatos} atualizadoEm={atual.dataHora} momento={historicoAtivo ? { t: atual.isoDataHora, pctTotalizado: atual.pctTotalizado } : undefined} />
         )
+      ) : timeline.erro ? (
+        <div role="alert" className="rounded-lg bg-track p-4 text-sm">
+          Não foi possível carregar o histórico ({timeline.erro}).{" "}
+          <button type="button" onClick={timeline.tentarNovamente} className="font-semibold text-accent underline">Tentar novamente</button>
+        </div>
       ) : (
         <Skeleton />
       )}
@@ -136,7 +148,7 @@ export default function Apuracao() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={guia.rever}
+                  onClick={()=>{pararSom();guia.rever();}}
                   className="shrink-0 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold whitespace-nowrap hover:bg-white/25"
                 >
                   ❓ Como funciona?
@@ -144,31 +156,26 @@ export default function Apuracao() {
                 <BotaoSom ativo={som.ativo} liberado={som.liberado} alternar={som.alternar} testarVitoria={som.testarVitoria} />
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <span key={apuracao.recebidoEm} className="inline-block size-2 animate-ping rounded-full bg-white [animation-iteration-count:2]" />
-                {d?.nacional ? <>Atualizado às {d.nacional.dataHora.slice(11, 16)} (TSE)</> : "Carregando…"}
+                <span className="inline-block size-2 rounded-full bg-white" />
+                {d.nacional ? <>{historicoAtivo ? `${fmtPct(d.nacional.pctTotalizado)} apurado` : "100% apurado"} · {d.nacional.dataHora} (TSE)</> : "Resultado arquivado"}
               </div>
             </div>
           </div>
         </header>
 
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5">
-          {apuracao.erro && !d && (
-            <div className="mb-4 rounded-lg border border-accent/40 bg-accent/10 p-3 text-sm">
-              Não foi possível carregar os dados do TSE ({apuracao.erro}). Tentando novamente…
-            </div>
-          )}
-
           {comPlacar && d?.nacional ? (
             <>
               <Placar
                 r={atual ?? d.nacional}
                 projecao={scope === "br" ? d.projecao : null}
+                controleReplay={controleReplay}
                 onVoltar={scope !== "br" ? () => setScope("br") : undefined}
               />
             </>
           ) : (
             <>
-              {atual && <ProgressoBar r={atual} />}
+              {atual && <ProgressoBar r={atual} controleReplay={controleReplay} />}
               {d?.projecao && d.nacional && <Projecao projecao={d.projecao} candidatos={d.nacional.candidatos} turno={d.nacional.turno} />}
             </>
           )}
@@ -277,9 +284,7 @@ export default function Apuracao() {
 
           <footer className="mt-6 text-center text-xs text-muted">
             <p className="mb-1 font-semibold text-foreground">Acompanhamento dedicado ao grupo do Zap Item 9</p>
-            Fonte: Tribunal Superior Eleitoral (resultados.tse.jus.br) · eleição {d?.eleicao ?? "…"} · atualização a cada{" "}
-            {POLL_MS / 1000}s
-            {d?.erros.length ? <span className="ml-2 text-accent">· {d.erros.length} abrangência(s) com falha na última consulta</span> : null}
+            Fonte: Tribunal Superior Eleitoral (resultados.tse.jus.br) · eleição {d.eleicao} · resultado e histórico preservados
           </footer>
         </main>
 
@@ -290,6 +295,9 @@ export default function Apuracao() {
           corFlavio={d?.nacional?.candidatos.find((c) => c.numero === "22")?.cor ?? "#272D97"}
         />
         <AvisoVitoria
+          onAlternar={som.alternarVitoria}
+          onPosicionar={som.posicionarVitoria}
+          resultadoFinal={resultadoFinal}
           vitoria={som.vitoria}
           onFechar={som.fecharVitoria}
           onOuvir={som.ouvirVitoria}
@@ -342,7 +350,7 @@ function Item9() {
   );
 }
 
-function ProgressoBar({ r }: { r: ResultadoAbrangencia }) {
+function ProgressoBar({ r, controleReplay }: { r: ResultadoAbrangencia; controleReplay?: ReactNode }) {
   return (
     <div className="rounded-xl bg-surface p-4 shadow-sm">
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -357,9 +365,9 @@ function ProgressoBar({ r }: { r: ResultadoAbrangencia }) {
           {r.finalizado && <span className="ml-2 font-semibold text-accent">Totalização finalizada</span>}
         </div>
       </div>
-      <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-track">
+      {controleReplay ?? <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-track">
         <div className="h-full rounded-full bg-accent transition-[width] duration-700" style={{ width: `${r.pctTotalizado}%` }} />
-      </div>
+      </div>}
     </div>
   );
 }
@@ -369,7 +377,7 @@ function ResumoVotos({ r }: { r: ResultadoAbrangencia }) {
     { label: "Válidos", valor: fmtInt(r.validos) },
     { label: "Brancos", valor: fmtPct(r.pctBrancos) },
     { label: "Nulos", valor: fmtPct(r.pctNulos) },
-    { label: "Abstenção", valor: fmtPct(r.pctAbstencao) },
+    { label: "Abstenção", valor: r.abstencaoDisponivel === false ? "Não registrada" : fmtPct(r.pctAbstencao) },
   ];
   return (
     <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3 sm:grid-cols-4">

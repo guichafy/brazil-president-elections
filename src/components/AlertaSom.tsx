@@ -4,16 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import AnimacaoHumor from "./AnimacaoHumor";
 import { AnimacaoLula, type EventoVitoria } from "./AvisoVitoria";
 import { avaliarHumor, LULA, lulaVenceu, type EventoHumor, type Variacao } from "@/lib/humor";
-import { arpejoFeliz, audioLiberado, desbloquearAudio, pararSom, somFeliz, somTriste, somVitoria } from "@/lib/sons";
+import { arpejoFeliz, audioLiberado, desbloquearAudio, pararSom, pausarSom,retomarSom,posicionarSom,somFeliz, somTriste, somVitoria } from "@/lib/sons";
 import type { ResultadoAbrangencia } from "@/lib/types";
+import { carregarReplayCliente } from "@/lib/replay-client";
+import { DURACAO_COMEMORACAO_MS,posicaoTimelapse } from "@/lib/timelapse";
 
 const AVISO_MS = 15_000; // sem som; com som, o aviso dura o mesmo que o áudio sorteado
 // depois de um aviso, as viradas seguintes dentro deste intervalo são descartadas (sem aviso nem áudio)
 const INTERVALO_AVISOS_MS = 5 * 60_000;
-const VITORIA_MS = 30_000; // comemoração sem som (com som, dura o mesmo que o áudio)
 
 /**
- * Compara cada totalização nacional nova com a anterior e toca o som correspondente.
+ * Mantém os testes de som e a comemoração a partir do resultado nacional arquivado.
  * Com `pausado` (ex.: tutorial aberto), segura o som e o aviso dos eventos que chegarem.
  * Avisa no máximo uma vez a cada 5 minutos: nada fica na fila para depois.
  * A vitória do Lula fura esse intervalo, comemora uma vez só (a pausa só adia) e encerra os avisos de sobe e desce.
@@ -29,6 +30,7 @@ export function useAlertaSom(pausado = false) {
   const ultimoAviso = useRef(-Infinity);
   const ativoRef = useRef(true);
   const pausadoRef = useRef(pausado);
+  const pedidoVitoria = useRef(0);
   useEffect(() => {
     pausadoRef.current = pausado;
   });
@@ -49,19 +51,26 @@ export function useAlertaSom(pausado = false) {
     pararSom();
     setEvento(null);
     const id = Date.now();
-    const mostrar = (duracao: number | null) =>
-      setVitoria({
-        id,
-        duracaoMs: duracao ? duracao * 1000 : VITORIA_MS,
-        eleito: !!lula?.eleito,
-        pct: lula?.pct ?? 50.6,
-        votos: lula?.votos ?? 0,
-        teste,
-        // som ligado mas ainda bloqueado pelo navegador (ninguém tocou na página)
-        semSom: ativoRef.current && !duracao,
-      });
-    if (ativoRef.current) somVitoria().then(mostrar);
-    else mostrar(null);
+    const pedido = ++pedidoVitoria.current;
+    setVitoria({
+      id,
+      duracaoMs: DURACAO_COMEMORACAO_MS,
+      iniciadoEm: null,
+      posicaoMs:0,
+      pausado:false,
+      eleito: nacional?.turno === "2" && !!lula?.eleito,
+      pct: lula?.pct ?? 50.6,
+      votos: lula?.votos ?? 0,
+      teste,
+      // som ligado mas ainda bloqueado pelo navegador (ninguém tocou na página)
+      semSom: ativoRef.current && !audioLiberado(),
+    });
+    void carregarReplayCliente().then(async () => {
+      if (pedido !== pedidoVitoria.current) return;
+      const duracao = ativoRef.current ? await somVitoria() : null;
+      if (pedido !== pedidoVitoria.current) return;
+      setVitoria(v => v?.id === id ? { ...v, iniciadoEm: Date.now(), semSom: ativoRef.current && !duracao } : v);
+    }).catch(() => { /* O modal oferece a repetição do carregamento. */ });
   }, []);
 
   const onNacional = useCallback(
@@ -70,7 +79,7 @@ export function useAlertaSom(pausado = false) {
       const ev = avaliarHumor(anterior.current, nacional);
       anterior.current = nacional;
       if (comemorou.current) return;
-      // com o guia aberto, a vitória espera a próxima consulta depois que ele fechar
+      // com o guia aberto, a vitória espera o efeito que roda quando ele fechar
       if (lulaVenceu(nacional)) {
         if (pausadoRef.current) return;
         comemorou.current = true;
@@ -97,17 +106,53 @@ export function useAlertaSom(pausado = false) {
   }, []);
 
   const fecharVitoria = useCallback(() => {
+    pedidoVitoria.current++;
     pararSom();
     setVitoria(null);
   }, []);
 
-  /** Libera o áudio no toque e toca o da vitória, recomeçando a contagem com a duração dele. */
+  /** Inicia som e filme juntos, sempre com 90s, descartando pedidos cancelados. */
   const ouvirVitoria = useCallback(async () => {
+    const pedido = ++pedidoVitoria.current;
+    pararSom();
     if (!(await desbloquearAudio())) return;
+    if (pedido !== pedidoVitoria.current) return;
+    ativoRef.current = true;
+    setAtivo(true);
     setLiberado(true);
-    const duracao = await somVitoria();
-    if (duracao) setVitoria((v) => v && { ...v, duracaoMs: duracao * 1000, semSom: false });
+    setVitoria(v => v && { ...v, iniciadoEm: null,posicaoMs:0,pausado:false });
+    try {
+      await carregarReplayCliente();
+      if (pedido !== pedidoVitoria.current) return;
+      const duracao = await somVitoria();
+      if (pedido !== pedidoVitoria.current) return;
+      setVitoria(v => v && { ...v, iniciadoEm: Date.now(), semSom: !duracao });
+    } catch { /* O modal mantém a opção de tentar novamente. */ }
   }, []);
+
+  const alternarVitoria=useCallback(async()=>{
+    if(!vitoria)return;
+    if(vitoria.iniciadoEm===null&&!vitoria.pausado)return;
+    if(vitoria.posicaoMs>=DURACAO_COMEMORACAO_MS){void ouvirVitoria();return;}
+    if(!vitoria.pausado){
+      pedidoVitoria.current++;pausarSom();
+      const posicaoMs=posicaoTimelapse(vitoria);
+      setVitoria(v=>v&&({...v,posicaoMs,iniciadoEm:null,pausado:true}));
+    }else{
+      const pedido=++pedidoVitoria.current;
+      if(!vitoria.semSom&&ativoRef.current){await desbloquearAudio();if(pedido!==pedidoVitoria.current)return;retomarSom();}
+      if(pedido!==pedidoVitoria.current)return;
+      setVitoria(v=>v&&({...v,iniciadoEm:Date.now(),pausado:false}));
+    }
+  },[vitoria,ouvirVitoria]);
+
+  const posicionarVitoria=useCallback((ms:number)=>{
+    if(!vitoria)return;
+    const posicaoMs=Math.max(0,Math.min(DURACAO_COMEMORACAO_MS,ms));
+    const pausado=vitoria.pausado||posicaoMs===DURACAO_COMEMORACAO_MS;
+    posicionarSom(posicaoMs/1000,!pausado);
+    setVitoria(v=>v&&({...v,posicaoMs,pausado,iniciadoEm:pausado ? null : Date.now()}));
+  },[vitoria]);
 
   /** Mostra a comemoração com os números atuais, sem contar como a de verdade. */
   const testarVitoria = useCallback(() => comemorar(anterior.current, true), [comemorar]);
@@ -115,6 +160,7 @@ export function useAlertaSom(pausado = false) {
   /** Liga ou desliga o som; retorna se ficou no estado pedido (ligar depende do navegador liberar o áudio). */
   const definir = useCallback(async (ligar: boolean) => {
     if (ligar && !(await desbloquearAudio())) return false;
+    if(!ligar)pararSom();
     ativoRef.current = ligar;
     setAtivo(ligar);
     setLiberado(audioLiberado());
@@ -134,12 +180,12 @@ export function useAlertaSom(pausado = false) {
   }, [evento, fecharAviso]);
 
   useEffect(() => {
-    if (!vitoria) return;
-    const t = setTimeout(fecharVitoria, vitoria.duracaoMs);
+    if (!vitoria?.iniciadoEm||vitoria.pausado) return;
+    const t = setTimeout(fecharVitoria, Math.max(0, vitoria.duracaoMs - posicaoTimelapse(vitoria)));
     return () => clearTimeout(t);
   }, [vitoria, fecharVitoria]);
 
-  return { ativo, liberado, alternar, definir, evento, fecharAviso, onNacional, vitoria, fecharVitoria, ouvirVitoria, testarVitoria };
+  return { ativo, liberado, alternar, definir, evento, fecharAviso, onNacional, vitoria, fecharVitoria, ouvirVitoria, testarVitoria,alternarVitoria,posicionarVitoria };
 }
 
 export function BotaoSom({

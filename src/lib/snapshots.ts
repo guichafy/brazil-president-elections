@@ -12,6 +12,8 @@ export interface Snapshot {
   st: number;
   ts: number;
   vv: number;
+  vb: number;
+  tvn: number;
   c: number;
   te?: number; // gravado a partir de 04/10 ~18:40
   est?: number;

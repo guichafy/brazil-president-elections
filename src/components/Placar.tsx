@@ -1,6 +1,7 @@
 "use client";
 
 import { fmtInt, fmtPct } from "@/lib/format";
+import type { ReactNode } from "react";
 import type { Candidato, ProjecaoNacional, ResultadoAbrangencia } from "@/lib/types";
 import { scopeName } from "@/lib/ufs";
 import Vantagem from "./Vantagem";
@@ -21,10 +22,12 @@ export default function Placar({
   r,
   projecao,
   onVoltar,
+  controleReplay,
 }: {
   r: ResultadoAbrangencia;
   projecao: ProjecaoNacional | null;
   onVoltar?: () => void;
+  controleReplay?: ReactNode;
 }) {
   // lados fixos pelo número do candidato, para o placar não trocar de lado quando a liderança muda
   const [esq, dir] = [...r.candidatos].sort((a, b) => Number(a.numero) - Number(b.numero));
@@ -95,9 +98,9 @@ export default function Placar({
           </span>
         )}
       </div>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-track">
+      {controleReplay ?? <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-track">
         <div className="h-full rounded-full bg-foreground transition-[width] duration-700" style={{ width: `${r.pctTotalizado}%` }} />
-      </div>
+      </div>}
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-[1fr_auto_1fr]">
         <Lado c={esq} projetado={mostraProj ? pEsq : undefined} />
@@ -186,7 +189,7 @@ function Resumo({ r }: { r: ResultadoAbrangencia }) {
     { label: "Válidos", valor: fmtInt(r.validos) },
     { label: "Brancos", valor: fmtPct(r.pctBrancos) },
     { label: "Nulos", valor: fmtPct(r.pctNulos) },
-    { label: "Abstenção", valor: fmtPct(r.pctAbstencao) },
+    { label: "Abstenção", valor: r.abstencaoDisponivel === false ? "Não registrada" : fmtPct(r.pctAbstencao) },
   ];
   return (
     <dl className="mt-3 grid grid-cols-4 gap-2 border-t border-border pt-3">
