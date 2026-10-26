@@ -49,7 +49,7 @@
   border: 1px solid #ffdf00b3;
   border-radius: 10px;
   background: #073b22fa;
-  padding: 9px 11px;
+  padding: 12px;
   box-shadow: 0 4px 18px #00180c80;
   pointer-events: none;
   animation: chamada-surgir 180ms ease-out both;
@@ -60,20 +60,20 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 20px;
   color: #ffdf00;
 }
 
 .legendaChamada {
   margin-top: 3px;
   color: #ffffff99;
-  font-size: 10px;
-  line-height: 12px;
+  font-size: 11px;
+  line-height: 14px;
 }
 
 .candidatoChamada {
-  margin-top: 8px;
+  margin-top: 10px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -82,13 +82,13 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 6px;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 13px;
+  line-height: 18px;
 }
 
 .nomeChamada > span {
   color: #ffffff99;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .votosChamada {
@@ -98,8 +98,9 @@
   gap: 4px;
   margin-top: 2px;
   white-space: nowrap;
-  font-size: 13px;
-  line-height: 18px;
+  font-size: clamp(18px, 5.65vw, 22px);
+  line-height: 28px;
+  font-weight: 700;
 }
 
 .votosChamada > span { color: #ffffffad; }
@@ -144,14 +145,15 @@
 
 .area {
   position: relative;
-  height: min(80dvh, calc((100vw - 32px) * 1.07));
+  --altura-mapa: min(80dvh, calc((100vw - 32px) * 1.07));
+  height: calc(var(--altura-mapa) + 224px);
   overflow: hidden;
 }
 
 .mapa {
   display: block;
   width: 100%;
-  height: 100%;
+  height: var(--altura-mapa);
 }
 
 .estado {
@@ -220,6 +222,11 @@
 
 @media (min-width: 768px) {
   .area {
-    height: min(82dvh, 880px, calc((100vw - 64px) * 1.07));
+    --altura-mapa: min(82dvh, 880px, calc((100vw - 64px) * 1.07));
   }
+}
+
+@media (min-width: 1600px) {
+  .area { height: var(--altura-mapa); }
+  .mapa { width: calc(100% - 728px); margin-inline: 364px; }
 }

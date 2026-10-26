@@ -16,7 +16,7 @@ const proj = geoIdentity().reflectY(true).fitExtent([[270,70],[970,825]],geo);
 const path = geoPath(proj);
 const shapes = geo.features.map((f:UfFeature) => {
   const [x,y] = path.centroid(f), [[x0,y0],[x1,y1]] = path.bounds(f);
-  return { uf:f.properties.uf, d:path(f)??"", x, y, raio:Math.hypot(x1-x0,y1-y0)+1 };
+  return { uf:f.properties.uf, d:path(f)??"", x, y, limites:{x:x0,y:y0,largura:x1-x0,altura:y1-y0}, raio:Math.hypot(x1-x0,y1-y0)+1 };
 });
 const marcadores = marcadoresSemColisao(shapes);
 const COR:Record<string,string> = { "13":"#ef3340", "22":"#6269ef" };
@@ -71,34 +71,38 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
 }) {
   const id = useId().replace(/:/g,"");
   const area = useRef<HTMLDivElement>(null);
+  const desenho = useRef<SVGSVGElement>(null);
   const seletor = useRef<HTMLSelectElement>(null);
-  const [medidas,setMedidas] = useState({ largura:0, altura:0 });
+  const [medidas,setMedidas] = useState({ largura:0, altura:0, mapa:{x:0,y:0,largura:0,altura:0} });
   const [cursor,setCursor] = useState(0);
   const { fatias: fatiasAnimadas, reacoes, mudancas } = useFatiasAnimadas(apuracao.ufs);
   const atualizados = new Set(mudancas.map(m => m.uf));
   const candidatos = apuracao.nacional?.candidatos.filter(c=>c.numero==="13"||c.numero==="22")??[];
   const detalhe = scope==="zz" ? apuracao.exterior : scope==="br" ? null : apuracao.ufs[scope];
   const selecionar = (uf:Scope) => onSelect(scope===uf ? "br" : uf);
-  const limite = medidas.largura >= 1000 && medidas.altura >= 500 ? 3 : medidas.largura >= 650 && medidas.altura >= 400 ? 2 : 1;
-  const larguraChamada = Math.max(0, Math.min(264, medidas.largura - 24));
+  const limite = medidas.largura >= 1100 ? 3 : medidas.largura >= 740 ? 2 : 1;
+  const duracaoChamada = medidas.largura >= 740 ? 6000 : 3000;
+  const larguraChamada = Math.max(0, Math.min(340, medidas.largura - 24));
   const grupo = grupoAtualizacoes(Object.values(reacoes).filter(r=>r.candidatos.some(c=>c.deltaVotos!==0)), cursor, limite);
-  const chamadas = posicionarAtualizacoes(grupo.map(r=>shapes.find(s=>s.uf===r.uf)!), medidas, {largura:larguraChamada,altura:144});
+  const chamadas = posicionarAtualizacoes(grupo.map(r=>shapes.find(s=>s.uf===r.uf)!), medidas, {largura:larguraChamada,altura:196}, {mapa:medidas.mapa,evitar:shapes.map(s=>s.limites)});
 
   useEffect(() => {
     if (pausado) return;
-    const timer=setInterval(()=>setCursor(c=>c+limite),1800);
+    const timer=setInterval(()=>setCursor(c=>c+limite),duracaoChamada);
     return ()=>clearInterval(timer);
-  }, [pausado,limite]);
+  }, [pausado,limite,duracaoChamada]);
 
   useEffect(() => {
     const medir = () => {
-      if (!area.current) return;
+      if (!area.current || !desenho.current) return;
       const a=area.current.getBoundingClientRect();
-      const proxima={ largura:a.width, altura:a.height };
-      setMedidas(anterior=>Object.keys(proxima).every(k=>proxima[k as keyof typeof proxima]===anterior[k as keyof typeof anterior]) ? anterior : proxima);
+      const d=desenho.current.getBoundingClientRect();
+      const proxima={ largura:a.width, altura:a.height, mapa:{x:d.left-a.left,y:d.top-a.top,largura:d.width,altura:d.height} };
+      setMedidas(anterior=>JSON.stringify(anterior)===JSON.stringify(proxima) ? anterior : proxima);
     };
     const observer = new ResizeObserver(medir);
     observer.observe(area.current!);
+    observer.observe(desenho.current!);
     return () => observer.disconnect();
   },[]);
 
@@ -121,7 +125,7 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
 
       <div className={styles.quadro}>
         <div ref={area} role="region" aria-label="Mapa do Brasil com votos por estado" aria-describedby={`${id}-instrucao`} className={styles.area}>
-          <svg viewBox={`${MAPA_VIEWBOX.x} ${MAPA_VIEWBOX.y} ${MAPA_VIEWBOX.largura} ${MAPA_VIEWBOX.altura}`} preserveAspectRatio="xMidYMid meet" className={styles.mapa} role="group" aria-label="Mapa animado da votação proporcional por estado">
+          <svg ref={desenho} viewBox={`${MAPA_VIEWBOX.x} ${MAPA_VIEWBOX.y} ${MAPA_VIEWBOX.largura} ${MAPA_VIEWBOX.altura}`} preserveAspectRatio="xMidYMid meet" className={styles.mapa} role="group" aria-label="Mapa animado da votação proporcional por estado">
             <defs>
               {shapes.map(s=><clipPath key={s.uf} id={`${id}-uf-${s.uf}`}><path d={s.d}/></clipPath>)}
             </defs>
@@ -159,7 +163,7 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
           </svg>
           {chamadas.map(c=>{
             const r=reacoes[c.uf]!;
-            return <div key={c.uf} role="region" aria-label={`Atualização automática de ${UFS[c.uf]}`} data-uf={c.uf} className={styles.chamadaAutomatica} style={{left:c.x,top:c.y,width:larguraChamada,height:144}}>
+            return <div key={c.uf} role="region" aria-label={`Atualização automática de ${UFS[c.uf]}`} data-uf={c.uf} className={styles.chamadaAutomatica} style={{left:c.x,top:c.y,width:larguraChamada,height:196}}>
               <strong className={styles.tituloChamada} title={UFS[c.uf]}>{c.uf.toUpperCase()} · {UFS[c.uf]}</strong>
               <p className={styles.legendaChamada}>Votos absolutos · Antes → Depois</p>
               {r.candidatos.map(candidato=><div key={candidato.numero} className={styles.candidatoChamada}>

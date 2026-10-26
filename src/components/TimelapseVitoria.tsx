@@ -68,6 +68,7 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
         <span className="text-xs tabular">{Math.floor(decorrido/1000)}s / 90s</span>
       </div>
 
+      <p className="mb-4 text-xs text-white/65">Pausar ou navegar pela timeline mantém a música tocando.</p>
       <div className="mb-4 grid grid-cols-2 gap-4">
         {["13","22"].map(numero => {
           const c = nacional.candidatos.find(c=>c.numero===numero);

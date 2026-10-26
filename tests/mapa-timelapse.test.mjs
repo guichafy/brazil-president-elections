@@ -3,6 +3,17 @@ import { test } from "node:test";
 import { fatiasVotos, setorPizza, marcadoresSemColisao, posicionarChamada } from "../src/lib/mapa-timelapse.ts";
 import * as mapa from "../src/lib/mapa-timelapse.ts";
 
+test("larger callouts respect complete state bounds and use reserved space outside the map", () => {
+  const mapaDesenho={x:0,y:0,largura:740,altura:795};
+  const limites={x:300,y:80,largura:400,altura:300};
+  const [chamada]=mapa.posicionarAtualizacoes([{uf:"am",x:600,y:250,limites}],{largura:740,altura:1039},{largura:340,altura:196},{mapa:mapaDesenho});
+  assert(chamada);
+  // Escala 1: limites SVG (300,80,400,300) tornam-se (50,30,400,300) no viewport.
+  assert(chamada.x+340+8<=50||chamada.x>=458||chamada.y+196+8<=30||chamada.y>=338,"O cartão não pode cobrir nenhuma parte do estado");
+  const [foraDoMapa]=mapa.posicionarAtualizacoes([{uf:"am",x:600,y:250,limites}],{largura:740,altura:1039},{largura:340,altura:196},{mapa:mapaDesenho,evitar:[mapa.MAPA_VIEWBOX]});
+  assert(foraDoMapa.y>=803,"O espaço abaixo do mapa mantém todos os estados livres");
+});
+
 test("automatic map callouts stay near their states, inside the viewport, and do not overlap", () => {
   assert.equal(typeof mapa.posicionarAtualizacoes,"function","Falta posicionar automaticamente as atualizações no mapa");
   const pontos=[{uf:"rn",x:948,y:285},{uf:"pb",x:950,y:310},{uf:"pe",x:938,y:340}];

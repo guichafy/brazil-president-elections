@@ -190,7 +190,7 @@ interface Props {
   onPosicionar:(ms:number)=>void;
 }
 
-/** Filme da apuração, com 90s sincronizados à trilha local quando liberada. */
+/** Apresentação de 90s, com trilha contínua iniciada no Play. */
 export default function AvisoVitoria({ vitoria, ...props }: Props) {
   if (!vitoria) return null;
   return <Comemoracao key={vitoria.id} vitoria={vitoria} {...props} />;

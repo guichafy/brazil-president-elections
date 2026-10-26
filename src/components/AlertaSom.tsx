@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import AnimacaoHumor from "./AnimacaoHumor";
 import { AnimacaoLula, type EventoVitoria } from "./AvisoVitoria";
 import { avaliarHumor, LULA, lulaVenceu, type EventoHumor, type Variacao } from "@/lib/humor";
-import { arpejoFeliz, audioLiberado, desbloquearAudio, pararSom, pausarSom,retomarSom,posicionarSom,somFeliz, somTriste } from "@/lib/sons";
+import { arpejoFeliz, audioLiberado, desbloquearAudio, pararSom, somFeliz, somTriste } from "@/lib/sons";
 import type { ResultadoAbrangencia } from "@/lib/types";
 import { iniciarVitoriaComAudio } from "@/lib/replay-client";
 import { DURACAO_COMEMORACAO_MS,posicaoTimelapse } from "@/lib/timelapse";
@@ -110,18 +110,16 @@ export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangen
     }
   }, []);
 
-  const alternarVitoria=useCallback(async()=>{
+  const alternarVitoria=useCallback(()=>{
     if(!vitoria)return;
     if(vitoria.iniciadoEm===null&&!vitoria.pausado)return;
     if(vitoria.posicaoMs>=DURACAO_COMEMORACAO_MS){void ouvirVitoria();return;}
     if(!vitoria.pausado){
-      pedidoVitoria.current++;pausarSom();
+      pedidoVitoria.current++;
       const posicaoMs=posicaoTimelapse(vitoria);
       setVitoria(v=>v&&({...v,posicaoMs,iniciadoEm:null,pausado:true}));
     }else{
-      const pedido=++pedidoVitoria.current;
-      if(!vitoria.semSom&&ativoRef.current){await desbloquearAudio();if(pedido!==pedidoVitoria.current)return;retomarSom();}
-      if(pedido!==pedidoVitoria.current)return;
+      pedidoVitoria.current++;
       setVitoria(v=>v&&({...v,iniciadoEm:Date.now(),pausado:false}));
     }
   },[vitoria,ouvirVitoria]);
@@ -130,7 +128,6 @@ export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangen
     if(!vitoria)return;
     const posicaoMs=Math.max(0,Math.min(DURACAO_COMEMORACAO_MS,ms));
     const pausado=vitoria.pausado||posicaoMs===DURACAO_COMEMORACAO_MS;
-    posicionarSom(posicaoMs/1000,!pausado);
     setVitoria(v=>v&&({...v,posicaoMs,pausado,iniciadoEm:pausado ? null : Date.now()}));
   },[vitoria]);
 

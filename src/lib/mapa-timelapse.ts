@@ -62,11 +62,14 @@ export function setorPizza(cx: number, cy: number, r: number, inicio: number, fr
 
 export const MAPA_VIEWBOX = { x:250, y:50, largura:740, altura:795 };
 
-function ancoraNoMapa(ponto:{x:number;y:number}, area:{largura:number;altura:number}) {
-  const escala = Math.min(area.largura / MAPA_VIEWBOX.largura, area.altura / MAPA_VIEWBOX.altura);
+type Retangulo = { x:number; y:number; largura:number; altura:number };
+
+function ancoraNoMapa(ponto:{x:number;y:number}, area:{largura:number;altura:number}, desenho?:Retangulo) {
+  const mapa = desenho ?? {x:0,y:0,...area};
+  const escala = Math.min(mapa.largura / MAPA_VIEWBOX.largura, mapa.altura / MAPA_VIEWBOX.altura);
   return {
-    x:(area.largura-MAPA_VIEWBOX.largura*escala)/2+(ponto.x-MAPA_VIEWBOX.x)*escala,
-    y:(area.altura-MAPA_VIEWBOX.altura*escala)/2+(ponto.y-MAPA_VIEWBOX.y)*escala,
+    x:mapa.x+(mapa.largura-MAPA_VIEWBOX.largura*escala)/2+(ponto.x-MAPA_VIEWBOX.x)*escala,
+    y:mapa.y+(mapa.altura-MAPA_VIEWBOX.altura*escala)/2+(ponto.y-MAPA_VIEWBOX.y)*escala,
   };
 }
 
@@ -79,15 +82,21 @@ export function grupoAtualizacoes<T extends { uf:string }>(atualizacoes:T[], cur
 
 /** Chamadas próximas ao estado, ligadas à âncora, com espaço reservado entre os cartões. */
 export function posicionarAtualizacoes<T extends string>(
-  pontos:{uf:T;x:number;y:number}[],
+  pontos:{uf:T;x:number;y:number;limites?:Retangulo}[],
   area:{largura:number;altura:number},
   caixa:{largura:number;altura:number},
+  layout:{mapa?:Retangulo;evitar?:Retangulo[]}={},
 ) {
   const margem=12, gap=8, w=caixa.largura, h=caixa.altura;
   const colocadas:{uf:T;x:number;y:number;ancora:{x:number;y:number};ponta:{x:number;y:number}}[]=[];
   if (area.largura<w+2*margem || area.altura<h+2*margem) return colocadas;
   const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
-  const ancoras=pontos.map(p=>({...p,ancora:ancoraNoMapa(p,area)}));
+  const ancoras=pontos.map(p=>({...p,ancora:ancoraNoMapa(p,area,layout.mapa)}));
+  const protegidos=[...pontos.flatMap(p=>p.limites ? [p.limites] : []),...(layout.evitar??[])].map(r=>{
+    const inicio=ancoraNoMapa(r,area,layout.mapa);
+    const fim=ancoraNoMapa({x:r.x+r.largura,y:r.y+r.altura},area,layout.mapa);
+    return {x:inicio.x,y:inicio.y,largura:fim.x-inicio.x,altura:fim.y-inicio.y};
+  });
   for (const p of ancoras) {
     const a=p.ancora;
     const opcoes=[
@@ -96,10 +105,13 @@ export function posicionarAtualizacoes<T extends string>(
       {x:a.x+24,y:a.y-h-24}, {x:a.x-w-24,y:a.y+24},
       {x:a.x-w-24,y:a.y-h-24}, {x:a.x+24,y:a.y+24},
     ];
-    for(let y=margem;y<=area.altura-h-margem;y+=h+gap)
-      for(let x=margem;x<=area.largura-w-margem;x+=w+gap)opcoes.push({x,y});
+    const xs=[area.largura-w-margem], ys=[area.altura-h-margem];
+    for(let x=margem;x<=area.largura-w-margem;x+=w+gap)xs.push(x);
+    for(let y=margem;y<=area.altura-h-margem;y+=h+gap)ys.push(y);
+    for(const y of ys)for(const x of xs)opcoes.push({x,y});
     const candidatos=opcoes.map(o=>({x:clamp(o.x,margem,area.largura-w-margem),y:clamp(o.y,margem,area.altura-h-margem)}))
       .filter(o=>colocadas.every(c=>o.x+w+gap<=c.x||c.x+w+gap<=o.x||o.y+h+gap<=c.y||c.y+h+gap<=o.y))
+      .filter(o=>protegidos.every(r=>o.x+w+gap<=r.x||r.x+r.largura+gap<=o.x||o.y+h+gap<=r.y||r.y+r.altura+gap<=o.y))
       .map(o=>{
         const ponta={x:clamp(a.x,o.x,o.x+w),y:clamp(a.y,o.y,o.y+h)};
         const cobre=(b:{x:number;y:number})=>b.x>o.x-8&&b.x<o.x+w+8&&b.y>o.y-8&&b.y<o.y+h+8;
