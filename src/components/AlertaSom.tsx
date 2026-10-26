@@ -164,7 +164,7 @@ export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangen
   useEffect(() => {
     if (!vitoria?.iniciadoEm||vitoria.pausado) return;
     const t = setTimeout(() => {
-      pararSom();
+      // Só encerra o relógio: a trilha continua até fechar a apresentação.
       setVitoria(v => v && { ...v, posicaoMs:v.duracaoMs, iniciadoEm:null, pausado:true });
     }, Math.max(0, vitoria.duracaoMs - posicaoTimelapse(vitoria)));
     return () => clearTimeout(t);

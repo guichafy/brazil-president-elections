@@ -119,8 +119,8 @@ test("presentation changes music only with the leader, loops through long pauses
     assert.equal(sources.length,2,"Atualizações e empate não reiniciam a música");
     assert.equal(await audio.prepararSonsApresentacao(),true);
     assert.equal(requests.filter(url=>url.endsWith("flavio-apreensao.mp3")).length,1);
-    assert.equal(await audio.somApresentacao("22",true),null,"Ir ao final encerra a música mesmo com a timeline pausada");
-    assert(sources.at(-1).stopped);
+    clockTime=300;assert.equal(audio.posicaoSom(),94,"A música segue em loop além dos 90s, até fechar a apresentação");
+    assert(!sources.at(-1).stopped);
     audio.pararSom();assert(sources.at(-1).stopped);
     await audio.somApresentacao("13");audio.pararSom();assert(sources.at(-1).stopped);
     failSuspense=true;

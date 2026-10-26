@@ -52,8 +52,8 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
   // Encerrar também troca o retrato dos cartões, mesmo sem uma navegação manual.
   const revisaoMapa = 2 * (vitoria.revisaoNavegacao ?? 0) + Number(encerrada);
   useEffect(() => {
-    if (!vitoria.semSom) void somApresentacao(lider, encerrada);
-  }, [lider, encerrada, vitoria.semSom]);
+    if (!vitoria.semSom) void somApresentacao(lider);
+  }, [lider, vitoria.semSom]);
   const restante = Math.ceil((DURACAO_COMEMORACAO_MS - decorrido) / 1000);
   const carregando=iniciadoEm===null&&!pausado;
   const resultadoExibido = scope==="br" ? nacional : scope==="zz" ? atual?.exterior : atual?.ufs[scope];

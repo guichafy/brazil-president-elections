@@ -162,12 +162,8 @@ export async function prepararSonsApresentacao(): Promise<boolean> {
   return faixas.every(Boolean);
 }
 
-/** Não reinicia a mesma liderança; empate conserva a música atual. O fechamento cancela cargas pendentes. */
-export function somApresentacao(lider: "13" | "22" | null, encerrada=false): Promise<number | null> {
-  if (encerrada) {
-    pararSom();
-    return Promise.resolve(null);
-  }
+/** Mantém a trilha em loop até fechar a apresentação; empate e mesma liderança não a reiniciam. */
+export function somApresentacao(lider: "13" | "22" | null): Promise<number | null> {
   if (lider === null) return Promise.resolve(null);
   const url = lider === "22" ? AUDIO_SUSPENSE : AUDIO_VITORIA;
   if (faixa?.url === url && faixa.loop && tocando) {
