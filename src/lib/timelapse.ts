@@ -58,7 +58,8 @@ export function criarRoteiro(replay: ReplayResponse): RoteiroTimelapse {
     const ms = intermediarios.length === 3 ? [23_000, 53_000, 74_000][i] : Math.round(((i + 1) / (intermediarios.length + 1)) * 78_000);
     agenda.push({ ms: ms - 4_000, indice: Math.max(agenda.at(-1)!.indice, m.indice - 1) }, { ms, indice: m.indice }, { ms: ms + 4_000, indice: m.indice });
   });
-  agenda.push({ ms: 82_000, indice: replay.pontos.length - 1 }, { ms: DURACAO_COMEMORACAO_MS, indice: replay.pontos.length - 1 });
+  // O restante da totalização avança até 90s; o resultado fica disponível após o filme.
+  agenda.push({ ms: DURACAO_COMEMORACAO_MS, indice: replay.pontos.length - 1 });
   return { marcos, agenda };
 }
 

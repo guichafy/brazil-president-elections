@@ -69,6 +69,20 @@ test("90-second schedule includes both lead changes, holds milestones and ends a
   assert(indices.every((v,i)=>i===0 || v >= indices[i-1]));
 });
 
+test("the last seconds keep advancing through the remaining count and finish at 100% in every scope", async () => {
+  const [final, replay] = await Promise.all([carregarApuracao(), carregarReplay()]);
+  const roteiro = criarRoteiro(replay);
+  const frames = [82000, 86000, 89000, 90000].map(ms => aplicarReplay(final, replay, indiceNoTempo(roteiro, ms)));
+  for (let i = 1; i < frames.length; i++) {
+    assert(Date.parse(frames[i].nacional.isoDataHora) > Date.parse(frames[i-1].nacional.isoDataHora), "O trecho final deve continuar avançando até o último registro");
+  }
+  assert.equal(frames.at(-1), final);
+  for (const r of [frames.at(-1).nacional, frames.at(-1).exterior, ...Object.values(frames.at(-1).ufs)]) {
+    assert.equal(r.pctTotalizado, 100);
+    assert.equal(r.secoesTotalizadas, r.secoesTotais);
+  }
+});
+
 test("state insights show exact recorded votes, progress and non-invented deltas for all states", async () => {
   const final = await carregarApuracao(), replay=await carregarReplay();
   const antes=aplicarReplay(final,replay,0), atual=aplicarReplay(final,replay,Math.floor(replay.pontos.length/2));

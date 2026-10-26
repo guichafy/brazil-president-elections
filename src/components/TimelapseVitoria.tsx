@@ -49,6 +49,8 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
   const lider = liderApresentacao(nacional) ?? (marco?.lider === "22" ? "22" : marco?.lider === "13" ? "13" : null);
   const clima = lider === "22" ? "suspense" : lider === "13" ? "festa" : "neutro";
   const encerrada = decorrido >= DURACAO_COMEMORACAO_MS;
+  // Encerrar também troca o retrato dos cartões, mesmo sem uma navegação manual.
+  const revisaoMapa = 2 * (vitoria.revisaoNavegacao ?? 0) + Number(encerrada);
   useEffect(() => {
     if (!vitoria.semSom) void somApresentacao(lider, encerrada);
   }, [lider, encerrada, vitoria.semSom]);
@@ -86,7 +88,7 @@ export default function TimelapseVitoria({ resultadoFinal, vitoria, onTentar,onA
         <button type="button" onClick={onAnalise}>Ir para visão analítica →</button>
       </div> : <p className={styles.nota}>A música continua durante a pausa.</p>}
 
-      <MapaTimelapse apuracao={atual!} scope={scope} onSelect={setScope} pausado={pausado} suspense={clima === "suspense"} revisaoNavegacao={vitoria.revisaoNavegacao??0} />
+      <MapaTimelapse apuracao={atual!} scope={scope} onSelect={setScope} pausado={pausado} suspense={clima === "suspense"} revisaoNavegacao={revisaoMapa} />
 
       <details className={styles.detalhes}>
         <summary>Marcos da apuração e fonte dos dados</summary>

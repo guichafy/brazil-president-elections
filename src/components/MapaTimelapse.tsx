@@ -176,7 +176,7 @@ export default function MapaTimelapse({ apuracao, scope, onSelect, pausado=false
             const r=grupo.find(r=>r.uf===c.uf)!;
             return <div key={c.uf} role="region" aria-label={`Atualização automática de ${UFS[c.uf]}`} data-uf={c.uf} className={styles.chamadaAutomatica} style={{left:c.x,top:c.y,width:larguraChamada,height:196}}>
               <strong className={styles.tituloChamada} title={UFS[c.uf]}>{c.uf.toUpperCase()} · {UFS[c.uf]}</strong>
-              <p className={styles.legendaChamada}>Antes → Depois · registro das {horario.format(new Date(r.instante))}</p>
+              <p className={styles.legendaChamada}>{apuracao.nacional?.finalizado ? `Resultado final · ${fmtPct(apuracao.ufs[c.uf]?.pctTotalizado ?? r.agoraApurado)} das urnas` : `Antes → Depois · registro das ${horario.format(new Date(r.instante))}`}</p>
               {r.candidatos.map(candidato=><div key={candidato.numero} className={styles.candidatoChamada}>
                 <div className={styles.nomeChamada}><strong style={{color:candidato.numero==="13" ? "#ffb6bd" : "#c5c9ff"}}>{candidato.numero==="13" ? "Lula" : "Flávio Bolsonaro"}</strong><span>{variacao(candidato.deltaVotos)}</span></div>
                 <div className={styles.votosChamada}><span>{fmtInt(candidato.antes.votos)}</span><span aria-hidden="true">→</span><strong>{fmtInt(candidato.agora.votos)}</strong></div>
