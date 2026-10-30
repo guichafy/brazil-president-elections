@@ -10,6 +10,9 @@ const html = await readFile("out/index.html", "utf8");
 assert(html.includes("100% apurado"), "O HTML inicial precisa conter o resultado");
 assert(html.includes("Momento da apuração"), "Slider de reprodução ausente");
 assert(!html.includes("Como explorar a apuração"), "O tutorial não deve abrir por padrão");
+assert(!html.includes("Reviva a apuração em 90 segundos"), "A comemoração deve ficar oculta até o Konami Code");
+assert(!html.includes("Rever apresentação"), "O acesso à comemoração deve acontecer pelo Konami Code");
+assert(!/<div[^>]*\sinert(?:[\s=>])/.test(html), "A análise inicial precisa estar disponível para interação");
 for (const c of candidates(archive.abrangencias.br)) {
   assert(html.includes(c.nmu), `Candidato ausente do HTML: ${c.nmu}`);
 }

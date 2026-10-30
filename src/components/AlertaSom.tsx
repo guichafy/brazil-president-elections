@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AnimacaoHumor from "./AnimacaoHumor";
 import { AnimacaoLula, type EventoVitoria } from "./AvisoVitoria";
-import { avaliarHumor, LULA, lulaVenceu, type EventoHumor, type Variacao } from "@/lib/humor";
+import { avaliarHumor, LULA, type EventoHumor, type Variacao } from "@/lib/humor";
 import { arpejoFeliz, audioLiberado, desbloquearAudio, pararSom, somFeliz, somTriste } from "@/lib/sons";
 import type { ResultadoAbrangencia } from "@/lib/types";
 import { iniciarVitoriaComAudio } from "@/lib/replay-client";
@@ -24,20 +24,19 @@ function vitoriaPronta(nacional: ResultadoAbrangencia | null, teste = false, id 
 }
 
 /**
- * Mantém os testes de som e a comemoração a partir do resultado nacional arquivado.
+ * Mantém os testes de som e a comemoração aberta pelo easter egg.
  * Com `pausado` (ex.: tutorial aberto), segura o som e o aviso dos eventos que chegarem.
  * Avisa no máximo uma vez a cada 5 minutos: nada fica na fila para depois.
- * A vitória do Lula fura esse intervalo, comemora uma vez só (a pausa só adia) e encerra os avisos de sobe e desce.
+ * Abrir a comemoração encerra os avisos de sobe e desce.
  */
 export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangencia | null = null, aoFecharVitoria?: () => void) {
   // ligado por padrão; o navegador só libera o áudio no 1º gesto do usuário na página
   const [ativo, setAtivo] = useState(true);
   const [liberado, setLiberado] = useState(false);
   const [evento, setEvento] = useState<EventoAviso | null>(null);
-  // O Play já faz parte do HTML estático; o relógio e o áudio ainda aguardam o clique.
-  const [vitoria, setVitoria] = useState<EventoVitoria | null>(() =>
-    !pausado && nacionalInicial && lulaVenceu(nacionalInicial) ? vitoriaPronta(nacionalInicial, false, 0) : null);
-  const comemorou = useRef(!!vitoria);
+  // A análise abre diretamente; só o Konami Code revela o Play da comemoração.
+  const [vitoria, setVitoria] = useState<EventoVitoria | null>(null);
+  const comemorou = useRef(false);
   const anterior = useRef<ResultadoAbrangencia | null>(nacionalInicial);
   const ultimoAviso = useRef(-Infinity);
   const ativoRef = useRef(true);
@@ -48,6 +47,7 @@ export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangen
   });
 
   const comemorar = useCallback((nacional: ResultadoAbrangencia | null, teste = false) => {
+    comemorou.current = true;
     pararSom();
     setEvento(null);
     pedidoVitoria.current++;
@@ -60,13 +60,6 @@ export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangen
       const ev = avaliarHumor(anterior.current, nacional);
       anterior.current = nacional;
       if (comemorou.current) return;
-      // com o guia aberto, a vitória espera o efeito que roda quando ele fechar
-      if (lulaVenceu(nacional)) {
-        if (pausadoRef.current) return;
-        comemorou.current = true;
-        comemorar(nacional);
-        return;
-      }
       if (!ev || pausadoRef.current) return;
       const agora = Date.now();
       if (agora - ultimoAviso.current < INTERVALO_AVISOS_MS) return;
@@ -78,7 +71,7 @@ export function useAlertaSom(pausado = false, nacionalInicial: ResultadoAbrangen
       if (ativoRef.current) (ev.humor === "feliz" ? somFeliz : somTriste)().then(mostrar);
       else mostrar(null);
     },
-    [comemorar],
+    [],
   );
 
   const fecharAviso = useCallback(() => {

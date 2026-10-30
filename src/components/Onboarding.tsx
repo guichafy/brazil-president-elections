@@ -324,7 +324,6 @@ function Pronto({ onConcluir }: { onConcluir: () => void }) {
       <p className="mb-4">A página fica disponível para consultar, comparar e conferir os resultados. Use a barra do histórico para revisar cada etapa da apuração.</p>
       <button type="button" onClick={onConcluir} className="mb-4 w-full rounded-xl bg-accent px-4 py-3 text-left font-bold text-white hover:bg-accent-strong">Explorar os dados</button>
       <ul className="space-y-3 text-muted">
-        <Item icone="▶">Para assistir novamente ao timelapse com música, use <b>Rever apresentação</b> e depois <b>Iniciar com música</b>.</Item>
         <Item icone="❓">Este guia continua disponível em <b>Como funciona?</b>, no topo da página.</Item>
       </ul>
     </>

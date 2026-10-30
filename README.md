@@ -31,7 +31,7 @@ Resultado, replay e análise da eleição presidencial brasileira de 2026, com o
 
 ## Funcionalidades
 
-- **Apresentação em timelapse**: a apuração do 2º turno em 90 segundos, com música sincronizada, mapa em setores de pizza, fotos e votos por UF.
+- **Easter egg com Konami Code**: o site abre diretamente na análise. Digite **↑ ↑ ↓ ↓ ← → ← → B A** para revelar “Reviva a apuração em 90 segundos” e iniciar o timelapse com música, mapa em setores de pizza, fotos e votos por UF.
 - **Placar**: votos e percentuais dos candidatos, diferença, válidos, brancos, nulos e abstenção.
 - **Mapa do Brasil** por estado, colorido por líder ou por candidato, com seleção de UF e do exterior.
 - **Municípios**: duplo clique no estado abre a tabela municipal, com ganhos em relação ao 1º turno, filtros por vencedor e viradas, totais e exportação em CSV.
@@ -44,7 +44,7 @@ Resultado, replay e análise da eleição presidencial brasileira de 2026, com o
 > Todos os resultados, fotos, sons, animações, malhas e fontes usados pelo site são locais. **O build e os acessos não consultam o TSE, o IBGE nem o Google.**
 
 <details>
-<summary>Tela inicial da apresentação</summary>
+<summary>Apresentação revelada pelo Konami Code</summary>
 
 <img src="docs/screenshots/apresentacao.jpg" alt="Tela inicial: “Reviva a apuração em 90 segundos”, com botão para iniciar com música" width="860">
 

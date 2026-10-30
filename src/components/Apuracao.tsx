@@ -19,6 +19,7 @@ import Projecao from "./Projecao";
 import ReplayControls from "./ReplayControls";
 import ResumoVotos from "./ResumoVotos";
 import Timeline, { Segmented } from "./Timeline";
+import { useKonamiCode } from "./useKonamiCode";
 
 type Vista = "evolucao" | "turnos";
 
@@ -92,11 +93,7 @@ export default function Apuracao({
   const controleReplay = <ReplayControls scope={scope} bloqueado={!!som.vitoria||guia.aberto} somAtivo={false} indice={replay?.indice ?? null} onChange={(dados, indice) => setReplay({ dados, indice })} />;
   const timeline = useTimeline(scope, timelineInicial);
 
-  // O resultado é fixo; fechar o tutorial também precisa liberar a comemoração.
-  const onNacional = som.onNacional;
-  useEffect(() => {
-    if (!guia.aberto) onNacional(resultadoFinal.nacional);
-  }, [guia.aberto, resultadoFinal.nacional, onNacional]);
+  useKonamiCode(som.testarVitoria, guia.aberto || !!som.vitoria);
 
   const atual: ResultadoAbrangencia | null | undefined =
     scope === "br" ? d?.nacional : scope === "zz" ? d?.exterior : d?.ufs[scope];
@@ -192,7 +189,6 @@ export default function Apuracao({
                 >
                   ❓ Como funciona?
                 </button>
-                <button type="button" onClick={som.testarVitoria} className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-semibold text-accent hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Rever apresentação</button>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="inline-block size-2 rounded-full bg-white" />

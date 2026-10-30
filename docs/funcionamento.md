@@ -18,6 +18,8 @@ Os arquivos capturados registram 100% das seções nas 29 abrangências (Brasil,
 
 ## Timelapse da vitória
 
+- A entrada padrão é a análise. A sequência **↑ ↑ ↓ ↓ ← → ← → B A** revela a tela “Reviva a apuração em 90 segundos”; o áudio começa apenas ao clicar em “Iniciar com música”.
+- Fechar a comemoração retorna à análise. O código pode ser repetido para abri-la novamente e não é processado no guia, na comemoração ou em campos e controles com navegação por setas.
 - O timelapse dura 90 segundos, com pausa, busca e saltos de 10 s sincronizados à música.
 - Pausar ou buscar reposiciona o áudio e o filme juntos; o botão de áudio reinicia ambos.
 - Os marcos vêm dos votos gravados: primeira virada às 19:44:44, retomada de Lula às 20:24:14 e garantia matemática às 21:08:54.
